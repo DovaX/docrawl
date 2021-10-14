@@ -1,4 +1,4 @@
-import docrawl_pkg.docrawl.docrawl_core as docrawl_core
+import docrawl.docrawl_core as docrawl_core
 from scrapy.crawler import CrawlerRunner
 from crochet import setup
 import keepvariable.keepvariable_core as kv
