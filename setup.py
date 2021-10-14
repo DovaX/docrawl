@@ -5,10 +5,10 @@ with open("README.md", "r") as fh:
     
 setuptools.setup(
     name='docrawl',
-    version='0.1.0',
+    version='0.1.2',
     author='DovaX',
     author_email='dovax.ai@gmail.com',
-    description='Do automated crawling of pages using scrapy, selenium and other libraries',
+    description='Do automated crawling of pages using scrapy',
     long_description=long_description,
     long_description_content_type="text/markdown",
     url='https://github.com/DovaX/docrawl',
