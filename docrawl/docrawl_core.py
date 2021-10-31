@@ -15,7 +15,7 @@ key = pynput.keyboard.Key
 
 from scrapy.selector import Selector
 from keepvariable.keepvariable_core import Var,kept_variables,save_variables,load_variable
-
+import pandas as pd
 
 
 spider_requests={"url":"www.forloop.ai","loaded":True}
@@ -52,13 +52,85 @@ def print_special(inp):
 def click_xpath(browser,xpath):
     browser.find_element_by_xpath(xpath).click()
     
-def extract_xpath(page,xpath):
-    data=page.xpath(xpath).extract()
-    with open("extracted_data.txt","a+") as f:
-        for i,row in enumerate(data):
-            f.write(row+"\n")
+def extract_xpath(page,inp):
     
-    print(data)
+    xpath=inp[0]
+    filename=inp[1]#"extracted_data.txt"
+    data=page.xpath(xpath).extract()
+    
+    
+    
+    #print("DATA",data)
+    with open(filename,"w+",encoding="utf-8") as f:
+        for i,row in enumerate(data):
+            #print("B",i,row)
+            f.write(row+"\n")
+        #print("C")
+    #print(data)
+    
+    
+    
+def extract_multiple_xpaths(page,inp):
+    print("PAGE",page,"INP",inp)
+    result=[]
+    xpaths=inp[0]
+    filename=inp[1]#"extracted_data.txt"
+    for i,xpath in enumerate(xpaths):
+        
+        data=page.xpath(xpath).extract()
+        print("data",data)
+        result.append(data)
+    
+    
+
+    
+    short_filename=filename.split(".txt")[0]
+    df=pd.DataFrame(result)
+    df.to_excel(short_filename+".xlsx")
+    
+        
+    data=result
+
+         
+    
+    print("DATA",data)
+    with open(filename,"w+",encoding="utf-8") as f:
+        pass
+
+   
+def extract_table_xpath(page,inp):
+    
+    
+    row_xpath=inp[0]
+    column_xpath=inp[1]
+    filename=inp[2]#"extracted_data.txt"
+    
+    
+    result=[]
+    trs=page.xpath(row_xpath)
+    for j,tr in enumerate(trs):
+        details=page.xpath(row_xpath+"["+str(j)+"]"+column_xpath).extract()
+        print(j,details)
+        
+        result.append(details)
+    
+    short_filename=filename.split(".txt")[0]
+    df=pd.DataFrame(result)
+    df.to_excel(short_filename+".xlsx")
+    
+        
+    data=result
+
+         
+    
+    print("DATA",data)
+    with open(filename,"w+",encoding="utf-8") as f:
+        pass
+        #for i,row in enumerate(data):
+            #print("B",i,row)
+            #f.write(row+"\n")
+        #print("C")
+    #print(data)
     
 
 
@@ -119,36 +191,43 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
         
         while not docrawl_core_done:
             try:
+                spider_requests=load_variable("scr_vars.kpv")
+                #print("LOADED REQUESTS",spider_requests)
+            except Exception as e:
+                spider_requests=Var({"url":"www.forloop.ai","loaded":True})
+                #print("LOADED REQUESTS - EXCEPTION",e)
+            try:
                 spider_functions=load_variable("scr_vars.kpv")
             except:
                 spider_functions=Var({"function":"print","input":"Warning: function not given to docrawl","done":False})
             try:
                 time.sleep(1)
                 print("Docrawl core loop")
-                print(spider_functions)
+                print(spider_functions) 
                 #print(docrawl_core_done)
                 #print(spider_requests['loaded'])
                 if not spider_requests['loaded']:
-                    print(spider_requests['url'])
+                    #print(spider_requests['url'])
                     self.browser.get(spider_requests['url'])
                     page=Selector(text=self.browser.page_source)
                     
                     spider_requests['loaded']=True
-                    print(spider_requests['loaded'],"spider_requests")
-                    #save_variables(spider_requests,"scr_vars.kpv")
+                    spider_requests=Var(spider_requests)
+                    #print(spider_requests['loaded'],"spider_requests")
+                    save_variables(kept_variables,"scr_vars.kpv")
                 
                 if spider_functions['done']==False:
                     
-                    print("AAA",spider_functions)
+                    #print("AAA",spider_functions)
                     #try:    
                         
                     function_str=spider_functions['function']
                     function=eval(function_str)
-                    print("BBB",function,function_str)
+                    #print("BBB",function,function_str)
                     
                     print("INPUT",spider_functions['input'])
                     
-                    inp=spider_functions['input'].replace("$","'").replace('€','"')
+                    inp=spider_functions['input']#.replace("$","'").replace('€','"')
                     print("INP",inp)
                     
                     
@@ -159,16 +238,30 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                     elif function_str=="extract_xpath":
                         print("EXTRACT XPATH")
                         extract_xpath(page,inp)
+                    elif function_str=="extract_multiple_xpaths":
+                        print("EXTRACT MULTIPLE XPATH")
+                        extract_multiple_xpaths(page,inp)
+                    elif function_str=="extract_table_xpath":
+                        print("EXTRACT XPATH")
+                        extract_table_xpath(page,inp)
                     else:
                         function(inp)
                     
                     #except Exception as e:
                     #    print("Exception occurred:",e)
+                    #print("A")
                     spider_functions['done']=True
+                    #print("B")
                     spider_functions=Var(spider_functions)
+                    #print("C")
                     save_variables(kept_variables,"scr_vars.kpv")
+                    #print("D")
                 page=Selector(text=self.browser.page_source)
                 #save_variables(kept_variables,"scr_vars.kpv")
-                #print("A",docrawl_core_done)
+                #print("ABCDEFGHIJ",docrawl_core_done)
             except KeyboardInterrupt:
+                #print("BLABLA")
                 break
+            
+            
+       
