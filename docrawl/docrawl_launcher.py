@@ -4,7 +4,7 @@ from crochet import setup
 import keepvariable.keepvariable_core as kv
 
 def load_website(url):
-    spider_requests=kv.Var({"url":url,"loaded":False})
+    spider_requests=kv.VarSafe({"url":url,"loaded":False},"spider_requests",'{"url":url,"loaded":False}')
     print("SPIDER_REQUESTS",spider_requests)
     kv.save_variables(kv.kept_variables,"scr_vars.kpv")
     
@@ -31,7 +31,7 @@ def extract_xpath(xpath,filename="extracted_data.xlsx"):
     inp=command
 
     
-    spider_functions=kv.Var({"function": function, "input": inp, "done": False})
+    spider_functions=kv.VarSafe({"function": function, "input": inp, "done": False},"spider_functions",'{"function": function, "input": inp, "done": False}')
     kv.save_variables(kv.kept_variables,"scr_vars.kpv")
     
     #docrawl_core.spider_requests={"url":url,"loaded":False}
@@ -59,7 +59,7 @@ def extract_multiple_xpath(xpaths,filename="extracted_data.xlsx"):
     inp=command
 
     
-    spider_functions=kv.Var({"function": function, "input": inp, "done": False})
+    spider_functions=kv.VarSafe({"function": function, "input": inp, "done": False},"spider_functions",'{"function": function, "input": inp, "done": False}')
     kv.save_variables(kv.kept_variables,"scr_vars.kpv")
     
     #docrawl_core.spider_requests={"url":url,"loaded":False}
@@ -87,7 +87,7 @@ def extract_table_xpath(xpath_row,xpath_col,filename="extracted_data.xlsx"):
     inp=command
 
     
-    spider_functions=kv.Var({"function": function, "input": inp, "done": False})
+    spider_functions=kv.VarSafe({"function": function, "input": inp, "done": False},"spider_functions",'{"function": function, "input": inp, "done": False}')
     kv.save_variables(kv.kept_variables,"scr_vars.kpv")
     
     #docrawl_core.spider_requests={"url":url,"loaded":False}
@@ -109,7 +109,7 @@ def click_xpath(args):
     function="click_xpath"
     inp=command
 
-    spider_functions=kv.Var({"function":function,"input":inp,"done":False})
+    spider_functions=kv.VarSafe({"function": function, "input": inp, "done": False},"spider_functions",'{"function": function, "input": inp, "done": False}')
     kv.save_variables(kv.kept_variables,"scr_vars.kpv")
 
 
@@ -124,7 +124,7 @@ def click_name(args):
         command = args
     inp = "self.browser.find_element_by_link_text('" + command + "').click()"
 
-    spider_functions=kv.Var({"function": function, "input": inp, "done": False})
+    spider_functions=kv.VarSafe({"function": function, "input": inp, "done": False},"spider_functions",'{"function": function, "input": inp, "done": False}')
     kv.save_variables(kv.kept_variables,"scr_vars.kpv")
 
     #docrawl_core.spider_requests={"url":url,"loaded":False}

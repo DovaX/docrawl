@@ -14,14 +14,14 @@ keyboard = pynput.keyboard.Controller()
 key = pynput.keyboard.Key
 
 from scrapy.selector import Selector
-from keepvariable.keepvariable_core import Var,kept_variables,save_variables,load_variable
+from keepvariable.keepvariable_core import VarSafe,kept_variables,save_variables,load_variable_safe
 import pandas as pd
 
 
 spider_requests={"url":"www.forloop.ai","loaded":True}
 
 
-spider_functions=Var({"function":"print","input":"Bla","done":False})
+spider_functions=VarSafe({"function":"print","input":"Bla","done":False},"spider_functions",'{"function":"print","input":"Bla","done":False}')
 
 browser_pid=None
 docrawl_core_done=False
@@ -42,7 +42,7 @@ LOGIN=False
 def print_special(inp):
     """prints and saves the output to kv.kept_variables"""
     print(inp)
-    inp=Var(inp)
+    inp=VarSafe(inp,"inp","inp")
     
     save_variables({"inp":inp},filename="input.kpv")
     
@@ -179,7 +179,7 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
         try:
             global browser_pid
             browser_pid=self.browser.capabilities['moz:processID']
-            browser_pid=Var(browser_pid)
+            browser_pid=VarSafe(browser_pid,"browser_pid","browser_pid")
             save_variables(kept_variables,"scr_vars.kpv")
             print(browser_pid)
         except Exception as e:
@@ -191,15 +191,15 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
         
         while not docrawl_core_done:
             try:
-                spider_requests=load_variable("scr_vars.kpv")
+                spider_requests=load_variable_safe("scr_vars.kpv","spider_requests")
                 #print("LOADED REQUESTS",spider_requests)
             except Exception as e:
-                spider_requests=Var({"url":"www.forloop.ai","loaded":True})
+                spider_requests=VarSafe({"url":"www.forloop.ai","loaded":True},"spider_requests",'{"url":"www.forloop.ai","loaded":True}')
                 #print("LOADED REQUESTS - EXCEPTION",e)
             try:
-                spider_functions=load_variable("scr_vars.kpv")
+                spider_functions=load_variable_safe("scr_vars.kpv","spider_functions")
             except:
-                spider_functions=Var({"function":"print","input":"Warning: function not given to docrawl","done":False})
+                spider_functions=VarSafe({"function":"print","input":"Warning: function not given to docrawl","done":False},"spider_functions",'{"function":"print","input":"Warning: function not given to docrawl","done":False}')
             try:
                 time.sleep(1)
                 print("Docrawl core loop")
@@ -212,7 +212,7 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                     page=Selector(text=self.browser.page_source)
                     
                     spider_requests['loaded']=True
-                    spider_requests=Var(spider_requests)
+                    spider_requests=VarSafe(spider_requests,"spider_requests","spider_requests")
                     #print(spider_requests['loaded'],"spider_requests")
                     save_variables(kept_variables,"scr_vars.kpv")
                 
@@ -252,7 +252,7 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                     #print("A")
                     spider_functions['done']=True
                     #print("B")
-                    spider_functions=Var(spider_functions)
+                    spider_functions=VarSafe(spider_functions,"spider_functions","spider_functions")
                     #print("C")
                     save_variables(kept_variables,"scr_vars.kpv")
                     #print("D")
