@@ -21,7 +21,8 @@ import pandas as pd
 spider_requests={"url":"www.forloop.ai","loaded":True}
 
 
-spider_functions=VarSafe({"function":"print","input":"Bla","done":False},"spider_functions",'{"function":"print","input":"Bla","done":False}')
+spider_functions={"function":"print","input":"Bla","done":False}
+spider_functions=VarSafe(spider_functions,"spider_functions","spider_functions")
 
 browser_pid=None
 docrawl_core_done=False
@@ -99,7 +100,6 @@ def extract_multiple_xpaths(page,inp):
 
    
 def extract_table_xpath(page,inp):
-    
     
     row_xpath=inp[0]
     column_xpath=inp[1]
@@ -194,16 +194,18 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                 spider_requests=load_variable_safe("scr_vars.kpv","spider_requests")
                 #print("LOADED REQUESTS",spider_requests)
             except Exception as e:
-                spider_requests=VarSafe({"url":"www.forloop.ai","loaded":True},"spider_requests",'{"url":"www.forloop.ai","loaded":True}')
+                spider_requests={"url":"www.forloop.ai","loaded":True}
+                spider_requests=VarSafe(spider_requests,"spider_requests","spider_requests")
                 #print("LOADED REQUESTS - EXCEPTION",e)
             try:
                 spider_functions=load_variable_safe("scr_vars.kpv","spider_functions")
             except:
-                spider_functions=VarSafe({"function":"print","input":"Warning: function not given to docrawl","done":False},"spider_functions",'{"function":"print","input":"Warning: function not given to docrawl","done":False}')
+                spider_functions={"function":"print","input":"Warning: function not given to docrawl","done":False}
+                spider_functions=VarSafe(spider_functions,"spider_functions","spider_functions")
             try:
                 time.sleep(1)
                 print("Docrawl core loop")
-                print(spider_functions) 
+                print(spider_functions)
                 #print(docrawl_core_done)
                 #print(spider_requests['loaded'])
                 if not spider_requests['loaded']:
