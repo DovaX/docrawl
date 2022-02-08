@@ -12,7 +12,7 @@ def load_website(url):
     
     #docrawl_core.spider_requests={"url":url,"loaded":False}
 
-def extract_xpath(xpath,filename="extracted_data.xlsx"):
+def extract_xpath(xpath,filename="extracted_data.xlsx",write_in_file_mode="w+"):
     #function = "exec"
     print("LAUNCHER",xpath,filename)
     args=xpath
@@ -22,7 +22,7 @@ def extract_xpath(xpath,filename="extracted_data.xlsx"):
         command = args
         
         
-    command=[xpath,filename]
+    command=[xpath,filename,write_in_file_mode]
         #command=command.replace("'","$")
         #command=command.replace('"','€')
                                 

@@ -54,15 +54,22 @@ def click_xpath(browser,xpath):
     browser.find_element_by_xpath(xpath).click()
     
 def extract_xpath(page,inp):
+    """
+    write_in_file_mode ... w+, a+
+    """
     
     xpath=inp[0]
     filename=inp[1]#"extracted_data.txt"
+    try:
+        write_in_file_mode=inp[2]
+    except:
+        write_in_file_mode="w+"
     data=page.xpath(xpath).extract()
     
     
     
     #print("DATA",data)
-    with open(filename,"w+",encoding="utf-8") as f:
+    with open(filename,write_in_file_mode,encoding="utf-8") as f:
         for i,row in enumerate(data):
             #print("B",i,row)
             f.write(row+"\n")
