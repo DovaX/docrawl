@@ -12,6 +12,38 @@ def load_website(url):
     
     #docrawl_core.spider_requests={"url":url,"loaded":False}
 
+
+def find_tables(incl_tables, incl_bullets, output_dir):
+    print("LAUNCHER", "Finding tables on page")
+
+    function = "find_tables"
+
+    inp = [incl_tables, incl_bullets, output_dir]
+
+    spider_functions = {"function": function, "input": inp, "done": False}
+    spider_functions = kv.VarSafe(spider_functions, "spider_functions", "spider_functions")
+    kv.save_variables(kv.kept_variables, "scr_vars.kpv")
+
+
+def get_current_url(filename):
+    print("LAUNCHER", "Current URL extract")
+
+    function = "get_current_url"
+    inp = [filename]
+
+    spider_functions = {"function": function, "input": inp, "done": False}
+    spider_functions = kv.VarSafe(spider_functions, "spider_functions", "spider_functions")
+    kv.save_variables(kv.kept_variables, "scr_vars.kpv")
+
+
+def close_browser():
+    print("LAUNCHER", "Close browser")
+
+    function = "close_browser"
+    spider_functions = {"function": function, "input": None, "done": False}
+    spider_functions = kv.VarSafe(spider_functions, "spider_functions", "spider_functions")
+    kv.save_variables(kv.kept_variables, "scr_vars.kpv")
+
 def extract_xpath(xpath,filename="extracted_data.xlsx",write_in_file_mode="w+"):
     #function = "exec"
     print("LAUNCHER",xpath,filename)
@@ -141,7 +173,8 @@ def click_name(args):
     #docrawl_core.spider_requests={"url":url,"loaded":False}
 
 
-def run_spider(number):
+def run_spider(number, in_browser=True):
     setup()
+    args = [in_browser]
     crawler = CrawlerRunner()
-    crawler.crawl(docrawl_core.DocrawlSpider)
+    crawler.crawl(docrawl_core.DocrawlSpider, args)

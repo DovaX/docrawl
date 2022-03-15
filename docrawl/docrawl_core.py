@@ -3,10 +3,11 @@
 #    sys.path.append("C:\\Users\\EUROCOM\\Documents\\Git\\DovaX")
 #except:
 #    pass
-
+import datetime
 import platform
 import scrapy
 from selenium import webdriver
+from selenium.webdriver.common.by import By
 from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 import time
 import pynput.keyboard
@@ -46,8 +47,262 @@ def print_special(inp):
     inp=VarSafe(inp,"inp","inp")
     
     save_variables({"inp":inp},filename="input.kpv")
-    
 
+
+def find_tables(page, inp, browser):
+    incl_tables = inp[0]
+    incl_bullets = inp[1]
+    output_dir = inp[2]
+
+    final_elements = {}  # Dictionary with screenshots of elements and their XPaths
+
+    time_start_f = datetime.datetime.now()
+
+    def timedelta_format(end, start):
+        delta = end - start
+        sec = delta.seconds
+        microsec = delta.microseconds
+        return f'{sec}:{microsec}'
+
+    def string_cleaner(string):
+        return (''.join(string.strip()).replace('\\', ''))
+
+    def find_bullets(*tags_type):
+        i = 1
+        final_bullets = []  # Bullets ready for export
+
+        for tags in tags_type:
+            for tag in tags:
+                xpath = generate_XPath(tag, '')
+                tag_2 = page.xpath(xpath)[0]
+                result = []
+                li_tags = tag_2.xpath('.//li')
+
+                for li_tag in li_tags:
+                    data = li_tag.xpath('.//text()').getall()
+                    data = [string_cleaner(x) for x in data]  # Cleaning the text
+                    data = list(filter(None, data))
+
+                    element = ' '.join(data).replace(u'\xa0', u' ')
+
+                    result.append(element + '\n')
+
+                if len(result) > 1:  # If list contains > 1 elements
+                    final_bullets.append(tag)
+
+                    final_elements.update({f'bullet_{i}':
+                                               {'selector': tag,
+                                                'data': result,
+                                                'xpath': xpath}})
+                    i += 1
+
+    # Generating XPath from Selenium object
+    def generate_XPath(childElement, current):
+        childTag = childElement.tag_name
+
+        if childTag == 'html':
+            return '/html[1]' + current
+
+        parentElement = childElement.find_element(By.XPATH, '..')
+        childrenElements = parentElement.find_elements(By.XPATH, '*')
+
+        count = 0
+
+        for childrenElement in childrenElements:
+            childrenElementTag = childrenElement.tag_name
+
+            if childTag == childrenElementTag:
+                count += 1
+
+            if childElement == childrenElement:
+                return generate_XPath(parentElement, f'/{childTag}[{count}]{current}')
+
+        return None
+
+    # Highlighting elements (tables, bullets on page), that could be potentially exported
+    def mark_elements(selectors, names, xpaths, data):
+        elems_pos = []
+
+        for selector, name, xpath, data in zip(selectors, names, xpaths, data):
+            elems_pos.append({'rect': selector.rect,
+                              'name': name,
+                              'xpath': xpath,
+                              'data': data})
+
+        elements_positions = elems_pos
+        elements_positions = VarSafe(elements_positions, 'elements_positions', 'elements_positions')
+
+        # TODO !!!!!!!!!!!!!!! EXPORT TO SEPARATE .kpv FILE !!!!!!!!!
+        save_variables(kept_variables)
+
+    time_start_findtables = datetime.datetime.now()
+
+    ##### TABLES SECTION #####
+    if incl_tables:
+        xpath = '//table'
+        # tables = page.xpath(xpath)
+        tables = browser.find_elements(By.XPATH, '//table')
+
+        i = 1
+
+        if tables:
+            for table in tables:
+                time_start_xpathtable = datetime.datetime.now()
+
+                if len(table.find_elements(By.XPATH, './/tr')) < 2:
+                    continue
+
+                xpath = generate_XPath(table, '')
+                print('[TIME] GENERATING XPATH OF TABLE ----->',
+                      timedelta_format(datetime.datetime.now(), time_start_xpathtable))
+                table_2 = page.xpath(xpath)[0]
+
+                result = []  # data
+                titles = []  # columns' names
+                tr_tags = table_2.xpath('.//tr')  # <tr> = table row
+                th_tags = table_2.xpath('.//th')  # <th> = table header (non-essential, so if any)
+
+                for th_tag in th_tags:
+                    titles.append(''.join(th_tag.xpath('.//text()').extract()).replace('\n', '').replace('\t', ''))
+
+                for tr_tag in tr_tags:
+                    td_tags = tr_tag.xpath('.//td')  # <td> = table data
+
+                    row = []
+
+                    '''
+                        # Sometimes between td tags there more than 1 tag with text, so that would
+                        # be proceeded as separate values despite of fact it should be in one cell.
+                        # That's why the further loop is needed. The result of it is a list of strings,
+                        # that should be in one cell later in dataframe.
+
+                        # Example: 
+
+                        <td>
+                            <a>Text 1</a>
+                            <a>Text 2</a>
+                        </td>
+
+                        # Without loop it would be two strings ("Text 1", "Text 2") and thus they 
+                        # will be in 2 differrent columns. With loop the result would be ["Text 1", "Text 2"] 
+                        # and after join method - "Text 1 Text 2" in just one cell (column).
+                   '''
+
+                    for td_tag in td_tags:
+                        data = td_tag.xpath('.//text()').getall()
+
+                        '''
+                            Some table cells include \n or unicode symbols,
+                            so that creates unneccesary "empty" columns and thus
+                            the number of columns doesn't meet the real one
+                        '''
+
+                        data = [string_cleaner(x) for x in data]  # Cleaning the text
+                        data = list(filter(None, data))  # Deleting empty strings
+
+                        row.append('\n'.join(data))  # Making one string value from list
+
+                    row = list(filter(None, row))
+
+                    result.append(row)
+
+                    if not titles:  # If table doesn't have <th> tags -> use first row as titles
+                        titles = row  # TODO: IF USER SELECTS THE TABLE, ASK HIM, WHETHER HE WANTS TO HAVE 1 ROW AS TITLES
+
+                try:
+                    # If number of columns' names (titles) is the same as number of columns
+                    df = pd.DataFrame(result, columns=titles)
+                except Exception:
+                    df = pd.DataFrame(result)
+
+                df = df.iloc[1:, :]  # Removing empty row at the beginning of dataframe
+
+                df.dropna(axis=0, how='all', inplace=True)
+
+                if not df.dropna().empty and len(df.columns) > 1 and len(df) > 1:  # If dataframe contains smth
+                    time_start_sstable = datetime.datetime.now()
+
+                    final_elements.update({f'table_{i}':
+                                               {'selector': table,
+                                                'data': df.to_string(),
+                                                'xpath': xpath}})
+
+                    i += 1
+
+    print('[TIME] FINDING TABLES --->', timedelta_format(datetime.datetime.now(), time_start_findtables))
+
+    ##### BULLET SECTION #####
+
+    time_start_findbullets = datetime.datetime.now()
+
+    if incl_bullets:
+        # <li> inside <ol> don't contain numbers, but they could be added here
+        ul_tags = browser.find_elements(By.XPATH, '//ul')  # Usual bullet lists
+        ol_tags = browser.find_elements(By.XPATH, '//ol')  # Bullet numbered lists
+
+        if ul_tags or ol_tags:
+            bullets = find_bullets(ul_tags, ol_tags)
+
+    print('[TIME] FINDING BULLETS --->', timedelta_format(datetime.datetime.now(), time_start_findbullets))
+
+    ##### MARKING ELEMENTS SECTION #####
+    time_start_ss_and_marking = datetime.datetime.now()
+
+    browser.find_element_by_xpath('/html').screenshot('browser_view.png')
+
+    names = list(final_elements.keys())
+    selectors = [x['selector'] for x in final_elements.values()]
+    xpaths = [x['xpath'] for x in final_elements.values()]
+    data = [x['data'] for x in final_elements.values()]
+
+    mark_elements(selectors, names, xpaths, data)
+
+    ##### EXPORT SECTION #####
+
+    time_start_exptables = datetime.datetime.now()
+
+    '''
+    for key in final_elements.keys():
+        data = final_elements[key]['data']
+        file_name = key
+
+        if 'bullet' in key:
+            with open(f'{output_dir}/{file_name}.txt', 'w+') as f:
+                for row in data:
+                    f.write(row)
+        elif 'table' in key:
+            data.to_excel(f'{output_dir}/{file_name}.xlsx')
+    print('[TIME] EXPORTING ELEMENTS', timedelta_format(datetime.datetime.now(), time_start_exptables))
+    '''
+    with open(f'{output_dir}/test_output_to_end_function.txt', 'w+') as f:
+        f.write('output')
+
+    print('[TIME] WHOLE FUNCTION ------>', timedelta_format(datetime.datetime.now(), time_start_f))
+
+
+def get_current_url(page, inp):
+    filename = inp[0]
+    try:
+        with open(filename, 'w+', encoding="utf-8") as f:
+            f.write(page)
+    except Exception:
+        print('Error while getting current URL!')
+
+
+def close_browser(browser):
+    try:
+        browser.quit()
+
+        '''
+        if not browser.current_url:
+            time.sleep(1)
+            close_browser(browser)
+        '''
+
+    except ConnectionRefusedError:
+        pass
+    except Exception:
+        print('Error while closing the browser!')
 
 
 def click_xpath(browser,xpath):
@@ -253,6 +508,15 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                     elif function_str=="extract_table_xpath":
                         print("EXTRACT XPATH")
                         extract_table_xpath(page,inp)
+                    elif function_str == "get_current_url":
+                        print("GET CURRENT URL")
+                        get_current_url(str(self.browser.current_url), inp)
+                    elif function_str == "find_tables":
+                        print("FIND TABLES")
+                        find_tables(page, inp, self.browser)
+                    elif function_str == "close_browser":
+                        print("CLOSE BROWSER")
+                        close_browser(self.browser)
                     else:
                         function(inp)
                     
