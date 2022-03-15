@@ -173,7 +173,8 @@ def click_name(args):
     #docrawl_core.spider_requests={"url":url,"loaded":False}
 
 
-def run_spider(number):
+def run_spider(number, in_browser=True):
     setup()
+    args = [in_browser]
     crawler = CrawlerRunner()
-    crawler.crawl(docrawl_core.DocrawlSpider)
+    crawler.crawl(docrawl_core.DocrawlSpider, args)
