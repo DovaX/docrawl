@@ -2,6 +2,7 @@ import docrawl.docrawl_core as docrawl_core
 from scrapy.crawler import CrawlerRunner
 from crochet import setup
 import keepvariable.keepvariable_core as kv
+import time
 
 def load_website(url):
     
@@ -189,6 +190,12 @@ def click_name(args):
 
 def run_spider(number, in_browser=True):
     setup()
-    args = [in_browser]
     crawler = CrawlerRunner()
-    crawler.crawl(docrawl_core.DocrawlSpider, args)
+
+    bool_scrape_in_browser = {'in_browser': in_browser}
+    bool_scrape_in_browser = kv.VarSafe(bool_scrape_in_browser, "bool_scrape_in_browser", "bool_scrape_in_browser")
+    kv.save_variables(kv.kept_variables, 'scr_vars.kpv')
+
+    time.sleep(5)
+
+    crawler.crawl(docrawl_core.DocrawlSpider)

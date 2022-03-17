@@ -9,6 +9,7 @@ import scrapy
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
+from selenium.webdriver import FirefoxOptions
 import time
 import pynput.keyboard
 
@@ -87,8 +88,6 @@ def find_tables(page, inp, browser):
         """
         Finds bullet lists (usual and numbered) in page.
             :param tags_type: list, type of bullet list tags (ul, ol)
-
-
         """
         i = 1
 
@@ -447,7 +446,21 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
         # self.browser = webdriver.PhantomJS(executable_path=PHANTOMJS_PATH, service_args=['--ignore-ssl-errors=true'])
         capabilities = DesiredCapabilities.FIREFOX
         capabilities["marionette"] = True
-        self.browser = webdriver.Firefox(capabilities=capabilities)
+
+        options = FirefoxOptions()
+
+        try:
+            bool_scrape_in_browser = load_variable_safe('scr_vars.kpv', 'bool_scrape_in_browser')['in_browser']
+        except Exception as e:
+            print('Error while loading bool_scrape_in_browser!', e)
+            bool_scrape_in_browser = True
+
+        if not bool_scrape_in_browser:
+            options.add_argument("--headless")
+
+        self.browser = webdriver.Firefox(options=options, capabilities=capabilities)
+
+
         self.browser.set_window_size(1820, 980)
         self.start_requests()
 
