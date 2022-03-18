@@ -189,6 +189,15 @@ def click_name(args):
 
 
 def run_spider(number, in_browser=True):
+    """
+    Starts crawler.
+        :param in_browser: bool, show browser GUI (-headless option).
+
+        Note: param in_browser is reverse to -headless option, meaning:
+            - in_browser=True -> no -headless in driver options
+            - in_browser=False -> add -headless to driver options
+    """
+
     setup()
     crawler = CrawlerRunner()
 
@@ -196,6 +205,6 @@ def run_spider(number, in_browser=True):
     bool_scrape_in_browser = kv.VarSafe(bool_scrape_in_browser, "bool_scrape_in_browser", "bool_scrape_in_browser")
     kv.save_variables(kv.kept_variables, 'scr_vars.kpv')
 
-    time.sleep(5)
+    time.sleep(1)
 
     crawler.crawl(docrawl_core.DocrawlSpider)
