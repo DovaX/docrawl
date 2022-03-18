@@ -448,6 +448,7 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
         capabilities["marionette"] = True
 
         options = FirefoxOptions()
+        window_size_x = 1820
 
         try:
             bool_scrape_in_browser = load_variable_safe('scr_vars.kpv', 'bool_scrape_in_browser')['in_browser']
@@ -458,10 +459,12 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
         if not bool_scrape_in_browser:
             options.add_argument("--headless")
 
+            # For headless mode different width of window is needed
+            window_size_x = 1450
+
         self.browser = webdriver.Firefox(options=options, capabilities=capabilities)
 
-
-        self.browser.set_window_size(1820, 980)
+        self.browser.set_window_size(window_size_x, 980)
         self.start_requests()
 
     def __del__(self):
