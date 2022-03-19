@@ -2,6 +2,7 @@ import docrawl.docrawl_core as docrawl_core
 from scrapy.crawler import CrawlerRunner
 from crochet import setup
 import keepvariable.keepvariable_core as kv
+import time
 
 def load_website(url):
     
@@ -14,6 +15,13 @@ def load_website(url):
 
 
 def find_tables(incl_tables, incl_bullets, output_dir):
+    """
+    Launches find_tables function from core.
+        :param incl_tables: boolean, search for tables
+        :param incl_bullets: boolean, search for bullet lists
+        :param output_dir: string, path to output directory <---- MAY BE REMOVED LATER
+    """
+
     print("LAUNCHER", "Finding tables on page")
 
     function = "find_tables"
@@ -26,6 +34,11 @@ def find_tables(incl_tables, incl_bullets, output_dir):
 
 
 def get_current_url(filename):
+    """
+    Launches get_current_url function from core.
+        :param filename: string, name of file that will be used for storing the URL
+    """
+
     print("LAUNCHER", "Current URL extract")
 
     function = "get_current_url"
@@ -37,12 +50,17 @@ def get_current_url(filename):
 
 
 def close_browser():
+    """
+    Launches close_browser function from core.
+    """
+
     print("LAUNCHER", "Close browser")
 
     function = "close_browser"
     spider_functions = {"function": function, "input": None, "done": False}
     spider_functions = kv.VarSafe(spider_functions, "spider_functions", "spider_functions")
     kv.save_variables(kv.kept_variables, "scr_vars.kpv")
+
 
 def extract_xpath(xpath,filename="extracted_data.xlsx",write_in_file_mode="w+"):
     #function = "exec"
@@ -101,8 +119,6 @@ def extract_multiple_xpath(xpaths,filename="extracted_data.xlsx"):
     #docrawl_core.spider_requests={"url":url,"loaded":False}
 
 
-
-
 def extract_table_xpath(xpath_row,xpath_col,filename="extracted_data.xlsx"):
     #function = "exec"
     args=xpath_row
@@ -129,7 +145,6 @@ def extract_table_xpath(xpath_row,xpath_col,filename="extracted_data.xlsx"):
     kv.save_variables(kv.kept_variables,"scr_vars.kpv")
     
     #docrawl_core.spider_requests={"url":url,"loaded":False}
-
 
 
 def click_xpath(args):
@@ -174,7 +189,22 @@ def click_name(args):
 
 
 def run_spider(number, in_browser=True):
+    """
+    Starts crawler.
+        :param in_browser: bool, show browser GUI (-headless option).
+
+        Note: param in_browser is reverse to -headless option, meaning:
+            - in_browser=True -> no -headless in driver options
+            - in_browser=False -> add -headless to driver options
+    """
+
     setup()
-    args = [in_browser]
     crawler = CrawlerRunner()
-    crawler.crawl(docrawl_core.DocrawlSpider, args)
+
+    bool_scrape_in_browser = {'in_browser': in_browser}
+    bool_scrape_in_browser = kv.VarSafe(bool_scrape_in_browser, "bool_scrape_in_browser", "bool_scrape_in_browser")
+    kv.save_variables(kv.kept_variables, 'scr_vars.kpv')
+
+    time.sleep(1)
+
+    crawler.crawl(docrawl_core.DocrawlSpider)
