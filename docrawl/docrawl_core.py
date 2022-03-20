@@ -12,6 +12,9 @@ from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 from selenium.webdriver import FirefoxOptions
 import time
 import pynput.keyboard
+import pickle
+import os
+import shutil
 
 keyboard = pynput.keyboard.Controller()
 key = pynput.keyboard.Key
@@ -63,7 +66,17 @@ def find_tables(page, inp, browser):
     incl_bullets = inp[1]
     output_dir = inp[2]
 
-    # Dictionary with screenshots of elements and their XPaths
+    # Folder for serialized dataframes
+    pickle_folder = 'pickle_scraped_data'
+
+    try:
+        shutil.rmtree(pickle_folder)
+    except:
+        pass
+    finally:
+        os.mkdir(pickle_folder)
+
+    # Dictionary with elements (XPaths, data)
     final_elements = {}
 
     time_start_f = datetime.datetime.now()
@@ -165,8 +178,7 @@ def find_tables(page, inp, browser):
         elements_positions = elems_pos
         elements_positions = VarSafe(elements_positions, 'elements_positions', 'elements_positions')
 
-        # TODO !!!!!!!!!!!!!!! EXPORT TO SEPARATE .kpv FILE !!!!!!!!!
-        save_variables(kept_variables)
+        save_variables(kept_variables, 'elements_positions.kpv')
 
 
     time_start_findtables = datetime.datetime.now()
@@ -256,11 +268,17 @@ def find_tables(page, inp, browser):
 
                 # If dataframe is not empty
                 if not df.dropna().empty and len(df.columns) > 1 and len(df) > 1:
+
+                    # Serialize DataFrame
+                    path = os.path.join(pickle_folder, f'table_{i}')
+
+                    with open(path + '.pickle', 'wb') as pickle_file:
+                        pickle.dump(df, pickle_file)
+
                     final_elements.update({f'table_{i}':
                                                {'selector': table,
-                                                'data': df.to_string(),
+                                                'data': pickle_file.name,
                                                 'xpath': xpath}})
-
                     i += 1
 
     print('[TIME] FINDING TABLES --->', timedelta_format(datetime.datetime.now(), time_start_findtables))
