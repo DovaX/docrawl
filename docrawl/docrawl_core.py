@@ -54,6 +54,20 @@ def print_special(inp):
     save_variables({"inp": inp}, filename="input.kpv")
 
 
+def extract_page_source(page, inp):
+    """
+    Extracts the source of currently scraped page.
+        :param page: Selenium Selector, page to export source from
+        :param inp: list, inputs from launcher (incl_tables, incl_bullets, output_dir)
+    """
+
+    varname = inp[0]
+    filename = inp[1]
+
+    with open(filename, 'w+', encoding="utf-8") as f:
+        f.write(page.page_source)
+
+
 def scan_web_page(page, inp, browser):
     """
     Finds different elements (tables, bullet lists) on page.
@@ -574,6 +588,9 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                     elif function_str == "close_browser":
                         print("CLOSE BROWSER")
                         close_browser(self.browser)
+                    elif function_str == "extract_page_source":
+                        print("EXTRACT PAGE SOURCE")
+                        extract_page_source(self.browser, inp)
                     else:
                         function(inp)
 

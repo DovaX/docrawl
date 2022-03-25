@@ -14,6 +14,24 @@ def load_website(url):
     #docrawl_core.spider_requests={"url":url,"loaded":False}
 
 
+def extract_page_source(varname, filename):
+    """
+    Launches extract_page_source from core.
+        :param varname: string, name of variable to be created inside platform
+        :param filename: string, name of file that will be used for storing page source
+    """
+
+    print('LAUNCHER', 'Extracting page source')
+
+    function = "extract_page_source"
+
+    inp = [varname, filename]
+
+    spider_functions = {"function": function, "input": inp, "done": False}
+    spider_functions = kv.VarSafe(spider_functions, "spider_functions", "spider_functions")
+    kv.save_variables(kv.kept_variables, "scr_vars.kpv")
+
+
 def scan_web_page(incl_tables, incl_bullets, output_dir):
     """
     Launches find_tables function from core.
