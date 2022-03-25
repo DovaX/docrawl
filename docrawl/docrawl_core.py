@@ -54,7 +54,7 @@ def print_special(inp):
     save_variables({"inp": inp}, filename="input.kpv")
 
 
-def find_tables(page, inp, browser):
+def scan_web_page(page, inp, browser):
     """
     Finds different elements (tables, bullet lists) on page.
         :param page: Selenium Selector, page to search elements in
@@ -568,9 +568,9 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                     elif function_str == "get_current_url":
                         print("GET CURRENT URL")
                         get_current_url(str(self.browser.current_url), inp)
-                    elif function_str == "find_tables":
-                        print("FIND TABLES")
-                        find_tables(page, inp, self.browser)
+                    elif function_str == "scan_web_page":
+                        print("SCAN WEB PAGE")
+                        scan_web_page(page, inp, self.browser)
                     elif function_str == "close_browser":
                         print("CLOSE BROWSER")
                         close_browser(self.browser)

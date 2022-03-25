@@ -14,7 +14,7 @@ def load_website(url):
     #docrawl_core.spider_requests={"url":url,"loaded":False}
 
 
-def find_tables(incl_tables, incl_bullets, output_dir):
+def scan_web_page(incl_tables, incl_bullets, output_dir):
     """
     Launches find_tables function from core.
         :param incl_tables: boolean, search for tables
@@ -22,9 +22,9 @@ def find_tables(incl_tables, incl_bullets, output_dir):
         :param output_dir: string, path to output directory <---- MAY BE REMOVED LATER
     """
 
-    print("LAUNCHER", "Finding tables on page")
+    print("LAUNCHER", "Scaning web page")
 
-    function = "find_tables"
+    function = "scan_web_page"
 
     inp = [incl_tables, incl_bullets, output_dir]
 
