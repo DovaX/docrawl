@@ -15,6 +15,8 @@ import pynput.keyboard
 import pickle
 import os
 import shutil
+from gui_layout_context import glc
+import pygame
 
 keyboard = pynput.keyboard.Controller()
 key = pynput.keyboard.Key
@@ -313,7 +315,7 @@ def scan_web_page(page, inp, browser):
 
     ##### SAVING COORDINATES OF ELEMENTS SECTION #####
 
-    browser.find_element_by_xpath('/html').screenshot('browser_view.png')
+    #browser.find_element_by_xpath('/html').screenshot('browser_view.png')
 
     names = list(final_elements.keys())
     selectors = [x['selector'] for x in final_elements.values()]
@@ -499,6 +501,9 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
         self.browser.set_window_size(window_size_x, 980)
         self.start_requests()
 
+        # Get Browser View
+        self.bred = glc.browser_editor1
+
     def __del__(self):
         self.browser.quit()
 
@@ -547,6 +552,32 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                     # print(spider_requests['url'])
                     self.browser.get(spider_requests['url'])
                     page = Selector(text=self.browser.page_source)
+
+                    # Make screenshot of current page
+                    self.browser.find_element(By.XPATH, '/html').screenshot('browser_view.png')
+
+                    is_imaged_saved = False
+
+                    while not is_imaged_saved:
+                        try:
+                            # Load new (current) screenshot to Browser View
+                            img = pygame.image.load('browser_view.png')
+                            self.bred.set_and_rescale_image(img)
+                            self.bred.highlighted_rectangles = []
+                            is_imaged_saved = True
+                        except FileNotFoundError:
+                            print('Screenshot of page was not found! Waiting 1 sec ...')
+                            time.sleep(1)
+                        except Exception:
+                            print('Error while loading browser screenshot!')
+                            break
+
+                    # Delete browser screenshot
+                    try:
+                        os.remove('browser_view.png')
+                    except OSError:
+                        print('Error while deleting screenshot!')
+
 
                     spider_requests['loaded'] = True
                     spider_requests = VarSafe(spider_requests, "spider_requests", "spider_requests")
