@@ -10,6 +10,8 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 from selenium.webdriver import FirefoxOptions
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 import time
 import pynput.keyboard
 import pickle
@@ -326,6 +328,23 @@ def scan_web_page(page, inp, browser):
     print('[TIME] WHOLE FUNCTION ------>', timedelta_format(datetime.datetime.now(), time_start_f))
 
 
+def wait_until_element_is_located(browser, inp):
+    """
+    Waits until certain element is located on page and then clicks on it.
+        :param browser: Selenium driver, browser instance
+        :param inp, list, inputs from launcher (incl_tables, incl_bullets, output_dir)
+
+    Note: click() method may be replaced with another
+    """
+
+    xpath = inp[0]
+
+    try:
+        WebDriverWait(browser, 5).until(EC.element_to_be_clickable((By.XPATH, xpath))).click()
+    except Exception as e:
+        print('Error while locating element', e)
+
+
 def get_current_url(url, inp):
     """
     Returns the URL of current opened website
@@ -602,6 +621,9 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                     elif function_str == "extract_page_source":
                         print("EXTRACT PAGE SOURCE")
                         extract_page_source(self.browser, inp)
+                    elif function_str == "wait_until_element_is_located":
+                        print("WAIT UNTIL ELEMENT IS LOCATED")
+                        wait_until_element_is_located(self.browser, inp)
                     else:
                         function(inp)
 
