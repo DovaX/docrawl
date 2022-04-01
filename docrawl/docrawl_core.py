@@ -80,7 +80,6 @@ def scan_web_page(page, inp, browser):
 
     incl_tables = inp[0]
     incl_bullets = inp[1]
-    output_dir = inp[2]
 
     # Folder for serialized dataframes
     pickle_folder = 'pickle_scraped_data'
@@ -323,25 +322,6 @@ def scan_web_page(page, inp, browser):
     data = [x['data'] for x in final_elements.values()]
 
     save_coordinates_of_elements(selectors, names, xpaths, data)
-
-    ##### EXPORT SECTION #####
-
-
-    '''
-    for key in final_elements.keys():
-        data = final_elements[key]['data']
-        file_name = key
-
-        if 'bullet' in key:
-            with open(f'{output_dir}/{file_name}.txt', 'w+') as f:
-                for row in data:
-                    f.write(row)
-        elif 'table' in key:
-            data.to_excel(f'{output_dir}/{file_name}.xlsx')
-    '''
-
-    with open(f'{output_dir}/test_output_to_end_function.txt', 'w+') as f:
-        f.write('output')
 
     print('[TIME] WHOLE FUNCTION ------>', timedelta_format(datetime.datetime.now(), time_start_f))
 

@@ -32,19 +32,18 @@ def extract_page_source(varname, filename):
     kv.save_variables(kv.kept_variables, "scr_vars.kpv")
 
 
-def scan_web_page(incl_tables, incl_bullets, output_dir):
+def scan_web_page(incl_tables, incl_bullets):
     """
     Launches find_tables function from core.
         :param incl_tables: boolean, search for tables
         :param incl_bullets: boolean, search for bullet lists
-        :param output_dir: string, path to output directory <---- MAY BE REMOVED LATER
     """
 
     print("LAUNCHER", "Scaning web page")
 
     function = "scan_web_page"
 
-    inp = [incl_tables, incl_bullets, output_dir]
+    inp = [incl_tables, incl_bullets]
 
     spider_functions = {"function": function, "input": inp, "done": False}
     spider_functions = kv.VarSafe(spider_functions, "spider_functions", "spider_functions")
