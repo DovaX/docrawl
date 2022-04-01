@@ -17,8 +17,7 @@ import pynput.keyboard
 import pickle
 import os
 import shutil
-from gui_layout_context import glc
-import pygame
+
 
 keyboard = pynput.keyboard.Controller()
 key = pynput.keyboard.Key
@@ -56,6 +55,21 @@ def print_special(inp):
     inp = VarSafe(inp, "inp", "inp")
 
     save_variables({"inp": inp}, filename="input.kpv")
+
+
+def take_screenshot(browser, inp):
+    """
+    Takes screenshot of current page and saves it.
+        :param browser: Selenium driver, browser instance
+        :param inp, list, inputs from launcher (filename)
+    """
+
+    filename = inp[0]
+
+    try:
+        browser.find_element(By.XPATH, '/html').screenshot(filename)
+    except Exception as e:
+        print('Error while taking page screenshot!', e)
 
 
 def extract_page_source(page, inp):
@@ -332,7 +346,7 @@ def wait_until_element_is_located(browser, inp):
     """
     Waits until certain element is located on page and then clicks on it.
         :param browser: Selenium driver, browser instance
-        :param inp, list, inputs from launcher (incl_tables, incl_bullets, output_dir)
+        :param inp, list, inputs from launcher (xpath)
 
     Note: click() method may be replaced with another
     """
@@ -500,8 +514,6 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
         self.browser.set_window_size(window_size_x, 980)
         self.start_requests()
 
-        # Get Browser View
-        self.bred = glc.browser_editor1
 
     def __del__(self):
         self.browser.quit()
@@ -552,32 +564,6 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                     self.browser.get(spider_requests['url'])
                     page = Selector(text=self.browser.page_source)
 
-                    # Make screenshot of current page
-                    self.browser.find_element(By.XPATH, '/html').screenshot('browser_view.png')
-
-                    is_imaged_saved = False
-
-                    while not is_imaged_saved:
-                        try:
-                            # Load new (current) screenshot to Browser View
-                            img = pygame.image.load('browser_view.png')
-                            self.bred.set_and_rescale_image(img)
-                            self.bred.highlighted_rectangles = []
-                            is_imaged_saved = True
-                        except FileNotFoundError:
-                            print('Screenshot of page was not found! Waiting 1 sec ...')
-                            time.sleep(1)
-                        except Exception:
-                            print('Error while loading browser screenshot!')
-                            break
-
-                    # Delete browser screenshot
-                    try:
-                        os.remove('browser_view.png')
-                    except OSError:
-                        print('Error while deleting screenshot!')
-
-
                     spider_requests['loaded'] = True
                     spider_requests = VarSafe(spider_requests, "spider_requests", "spider_requests")
                     # print(spider_requests['loaded'],"spider_requests")
@@ -624,6 +610,9 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                     elif function_str == "wait_until_element_is_located":
                         print("WAIT UNTIL ELEMENT IS LOCATED")
                         wait_until_element_is_located(self.browser, inp)
+                    elif function_str == "take_screenshot":
+                        print("TAKE PAGE SCREENSHOT")
+                        take_screenshot(self.browser, inp)
                     else:
                         function(inp)
 
