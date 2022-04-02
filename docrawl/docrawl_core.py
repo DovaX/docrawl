@@ -402,7 +402,6 @@ def extract_xpath(page, inp):
     """
     write_in_file_mode ... w+, a+
     """
-
     xpath = inp[0]
     filename = inp[1]  # "extracted_data.txt"
     try:
@@ -411,11 +410,17 @@ def extract_xpath(page, inp):
         write_in_file_mode = "w+"
     data = page.xpath(xpath).extract()
 
+    if not data:
+        data = ['EmptyElement']
+
     # print("DATA",data)
     with open(filename, write_in_file_mode, encoding="utf-8") as f:
         for i, row in enumerate(data):
             # print("B",i,row)
-            f.write(row + "\n")
+            row = row.strip()
+
+            if row:
+                f.write(row.strip() + "\n")
         # print("C")
     # print(data)
 
