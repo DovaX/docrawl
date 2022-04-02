@@ -10,11 +10,14 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 from selenium.webdriver import FirefoxOptions
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 import time
 import pynput.keyboard
 import pickle
 import os
 import shutil
+
 
 keyboard = pynput.keyboard.Controller()
 key = pynput.keyboard.Key
@@ -54,7 +57,36 @@ def print_special(inp):
     save_variables({"inp": inp}, filename="input.kpv")
 
 
-def find_tables(page, inp, browser):
+def take_screenshot(browser, inp):
+    """
+    Takes screenshot of current page and saves it.
+        :param browser: Selenium driver, browser instance
+        :param inp, list, inputs from launcher (filename)
+    """
+
+    filename = inp[0]
+
+    try:
+        browser.find_element(By.XPATH, '/html').screenshot(filename)
+    except Exception as e:
+        print('Error while taking page screenshot!', e)
+
+
+def extract_page_source(page, inp):
+    """
+    Extracts the source of currently scraped page.
+        :param page: Selenium Selector, page to export source from
+        :param inp: list, inputs from launcher (incl_tables, incl_bullets, output_dir)
+    """
+
+    varname = inp[0]
+    filename = inp[1]
+
+    with open(filename, 'w+', encoding="utf-8") as f:
+        f.write(page.page_source)
+
+
+def scan_web_page(page, inp, browser):
     """
     Finds different elements (tables, bullet lists) on page.
         :param page: Selenium Selector, page to search elements in
@@ -64,7 +96,6 @@ def find_tables(page, inp, browser):
 
     incl_tables = inp[0]
     incl_bullets = inp[1]
-    output_dir = inp[2]
 
     # Folder for serialized dataframes
     pickle_folder = 'pickle_scraped_data'
@@ -299,7 +330,7 @@ def find_tables(page, inp, browser):
 
     ##### SAVING COORDINATES OF ELEMENTS SECTION #####
 
-    browser.find_element_by_xpath('/html').screenshot('browser_view.png')
+    #browser.find_element_by_xpath('/html').screenshot('browser_view.png')
 
     names = list(final_elements.keys())
     selectors = [x['selector'] for x in final_elements.values()]
@@ -308,26 +339,24 @@ def find_tables(page, inp, browser):
 
     save_coordinates_of_elements(selectors, names, xpaths, data)
 
-    ##### EXPORT SECTION #####
-
-
-    '''
-    for key in final_elements.keys():
-        data = final_elements[key]['data']
-        file_name = key
-
-        if 'bullet' in key:
-            with open(f'{output_dir}/{file_name}.txt', 'w+') as f:
-                for row in data:
-                    f.write(row)
-        elif 'table' in key:
-            data.to_excel(f'{output_dir}/{file_name}.xlsx')
-    '''
-
-    with open(f'{output_dir}/test_output_to_end_function.txt', 'w+') as f:
-        f.write('output')
-
     print('[TIME] WHOLE FUNCTION ------>', timedelta_format(datetime.datetime.now(), time_start_f))
+
+
+def wait_until_element_is_located(browser, inp):
+    """
+    Waits until certain element is located on page and then clicks on it.
+        :param browser: Selenium driver, browser instance
+        :param inp, list, inputs from launcher (xpath)
+
+    Note: click() method may be replaced with another
+    """
+
+    xpath = inp[0]
+
+    try:
+        WebDriverWait(browser, 5).until(EC.element_to_be_clickable((By.XPATH, xpath))).click()
+    except Exception as e:
+        print('Error while locating element', e)
 
 
 def get_current_url(url, inp):
@@ -373,7 +402,6 @@ def extract_xpath(page, inp):
     """
     write_in_file_mode ... w+, a+
     """
-
     xpath = inp[0]
     filename = inp[1]  # "extracted_data.txt"
     try:
@@ -382,11 +410,17 @@ def extract_xpath(page, inp):
         write_in_file_mode = "w+"
     data = page.xpath(xpath).extract()
 
+    if not data:
+        data = ['EmptyElement']
+
     # print("DATA",data)
     with open(filename, write_in_file_mode, encoding="utf-8") as f:
         for i, row in enumerate(data):
             # print("B",i,row)
-            f.write(row + "\n")
+            row = row.strip()
+
+            if row:
+                f.write(row.strip() + "\n")
         # print("C")
     # print(data)
 
@@ -485,6 +519,7 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
         self.browser.set_window_size(window_size_x, 980)
         self.start_requests()
 
+
     def __del__(self):
         self.browser.quit()
 
@@ -568,12 +603,21 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                     elif function_str == "get_current_url":
                         print("GET CURRENT URL")
                         get_current_url(str(self.browser.current_url), inp)
-                    elif function_str == "find_tables":
-                        print("FIND TABLES")
-                        find_tables(page, inp, self.browser)
+                    elif function_str == "scan_web_page":
+                        print("SCAN WEB PAGE")
+                        scan_web_page(page, inp, self.browser)
                     elif function_str == "close_browser":
                         print("CLOSE BROWSER")
                         close_browser(self.browser)
+                    elif function_str == "extract_page_source":
+                        print("EXTRACT PAGE SOURCE")
+                        extract_page_source(self.browser, inp)
+                    elif function_str == "wait_until_element_is_located":
+                        print("WAIT UNTIL ELEMENT IS LOCATED")
+                        wait_until_element_is_located(self.browser, inp)
+                    elif function_str == "take_screenshot":
+                        print("TAKE PAGE SCREENSHOT")
+                        take_screenshot(self.browser, inp)
                     else:
                         function(inp)
 
