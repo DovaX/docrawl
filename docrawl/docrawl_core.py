@@ -67,7 +67,10 @@ def take_screenshot(browser, inp):
     filename = inp[0]
 
     try:
-        browser.find_element(By.XPATH, '/html').screenshot(filename)
+        root_element = browser.find_element(By.XPATH, '/html')
+        root_element.screenshot(filename)
+
+        browser.execute_script("return arguments[0].scrollIntoView(true);", root_element)
     except Exception as e:
         print('Error while taking page screenshot!', e)
 
