@@ -106,7 +106,22 @@ def close_browser():
     spider_functions = {"function": function, "input": None, "done": False}
     spider_functions = kv.VarSafe(spider_functions, "spider_functions", "spider_functions")
     kv.save_variables(kv.kept_variables, "scr_vars.kpv")
-    time.sleep(3)  # Without delay function is not transferred to docrawl_core
+    #time.sleep(3)  # Without delay function is not transferred to docrawl_core
+
+
+def scroll_web_page(scroll_to, scroll_by):
+    """
+    Launches scroll_web_page function from core.
+    """
+
+    print("LAUNCHER", "Scroll web page")
+
+    function = "scroll_web_page"
+    inp = [scroll_to, scroll_by]
+
+    spider_functions = {"function": function, "input": inp, "done": False}
+    spider_functions = kv.VarSafe(spider_functions, "spider_functions", "spider_functions")
+    kv.save_variables(kv.kept_variables, "scr_vars.kpv")
 
 
 def extract_xpath(xpath, filename="extracted_data.xlsx", write_in_file_mode="w+"):

@@ -67,7 +67,10 @@ def take_screenshot(browser, inp):
     filename = inp[0]
 
     try:
-        browser.find_element(By.XPATH, '/html').screenshot(filename)
+        root_element = browser.find_element(By.XPATH, '/html')
+        root_element.screenshot(filename)
+
+        browser.execute_script("return arguments[0].scrollIntoView(true);", root_element)
     except Exception as e:
         print('Error while taking page screenshot!', e)
 
@@ -394,6 +397,38 @@ def close_browser(browser):
         print('Error while closing the browser!')
 
 
+def scroll_web_page(browser, inp):
+    """
+    Scrolls page up / down by n-pixels.
+        :param browser: driver instance
+        :param inp: list, inputs from launcher (scroll_to, scroll_by)
+    """
+
+    scroll_to = inp[0]
+    scroll_by = inp[1]
+
+    if scroll_to == 'Down':
+        if scroll_by == 'max':
+            script = 'window.scrollTo(0, document.body.scrollHeight);var lenOfPage=document.body.scrollHeight;return lenOfPage;'
+        else:
+            try:
+                #script = f'window.scrollBy(0, {scroll_by});'       # instant scrolling
+                script = f'window.scrollBy({{top: {scroll_by}, left: 0, behavior: "smooth"}});'     # smooth scrolling
+            except:
+                pass
+    elif scroll_to == 'Up':
+        if scroll_by == 'max':
+            script = 'window.scrollTo(0, 0)'
+        else:
+            try:
+                #script = f'window.scrollBy(0, -{scroll_by});'      # instant scrolling
+                script = f'window.scrollBy({{top: -{scroll_by}, left: 0, behavior: "smooth"}});'    # smooth scrolling
+            except:
+                pass
+
+    browser.execute_script(script)
+
+
 def click_xpath(browser, xpath):
     browser.find_element_by_xpath(xpath).click()
 
@@ -618,6 +653,9 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                     elif function_str == "take_screenshot":
                         print("TAKE PAGE SCREENSHOT")
                         take_screenshot(self.browser, inp)
+                    elif function_str == "scroll_web_page":
+                        print("SCROLL WEB PAGE")
+                        scroll_web_page(self.browser, inp)
                     else:
                         function(inp)
 
