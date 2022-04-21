@@ -12,6 +12,8 @@ from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 from selenium.webdriver import FirefoxOptions
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.firefox.service import Service
+from webdriver_manager.firefox import GeckoDriverManager
 import time
 import pynput.keyboard
 import pickle
@@ -99,6 +101,9 @@ def scan_web_page(page, inp, browser):
 
     incl_tables = inp[0]
     incl_bullets = inp[1]
+    incl_texts = inp[2]
+    incl_headlines = inp[3]
+    incl_links = inp[4]
 
     # Folder for serialized dataframes
     pickle_folder = 'pickle_scraped_data'
@@ -125,7 +130,6 @@ def scan_web_page(page, inp, browser):
         """
         Removes whitespaces from string.
             :param string: string, string to clean
-
             :return - cleaned string
         """
 
@@ -136,10 +140,7 @@ def scan_web_page(page, inp, browser):
         Finds bullet lists (usual and numbered) in page.
             :param tags_type: list, type of bullet list tags (ul, ol)
         """
-        i = 1
-
-        # Bullets ready for export
-        final_bullets = []
+        i = 0
 
         for tags in tags_type:
             for tag in tags:
@@ -159,12 +160,7 @@ def scan_web_page(page, inp, browser):
 
                 # If list contains > 1 element
                 if len(result) > 1:
-                    final_bullets.append(tag)
-
-                    final_elements.update({f'bullet_{i}':
-                                               {'selector': tag,
-                                                'data': result,
-                                                'xpath': xpath}})
+                    serialize_and_append_data(f'bullet_{i}', tag)
                     i += 1
 
     def generate_XPath(childElement, current):
@@ -199,7 +195,7 @@ def scan_web_page(page, inp, browser):
 
     def save_coordinates_of_elements(selectors, names, xpaths, data):
         """
-        Saves coordinates of elements (tables, bullet list), that could be potentially exported.
+        Saves coordinates of elements (tables, bullet lists, text elements, headlines, links), that could be potentially exported.
         """
         elems_pos = []
 
@@ -214,9 +210,32 @@ def scan_web_page(page, inp, browser):
 
         save_variables(kept_variables, 'elements_positions.kpv')
 
+    def serialize_and_append_data(varname, selector):
+        """
+        Serializes data behind the element and updates dictionary with final elements
+            :param varname: variable name to save
+            :param selector: Selenium Selector
+        """
+
+        path = os.path.join(pickle_folder, varname)
+        xpath = generate_XPath(selector, '')
+
+        if 'link' in varname:
+            data = selector.get_attribute('href')
+            xpath += '/@href'
+        else:
+            data = selector.text
+            xpath += '/text()'
+
+        with open(path + '.pickle', 'wb') as pickle_file:
+            pickle.dump(data, pickle_file)
+
+        final_elements.update({varname:
+                                   {'selector': selector,
+                                    'data': pickle_file.name,
+                                    'xpath': xpath}})
 
     time_start_findtables = datetime.datetime.now()
-
 
     ##### TABLES SECTION #####
     if incl_tables:
@@ -224,10 +243,8 @@ def scan_web_page(page, inp, browser):
         # tables = page.xpath(xpath)
         tables = browser.find_elements(By.XPATH, '//table')
 
-        i = 1
-
         if tables:
-            for table in tables:
+            for i, table in enumerate(tables):
                 time_start_xpathtable = datetime.datetime.now()
 
                 if len(table.find_elements(By.XPATH, './/tr')) < 2:
@@ -302,7 +319,6 @@ def scan_web_page(page, inp, browser):
 
                 # If dataframe is not empty
                 if not df.dropna().empty and len(df.columns) > 1 and len(df) > 1:
-
                     # Serialize DataFrame
                     path = os.path.join(pickle_folder, f'table_{i}')
 
@@ -313,7 +329,6 @@ def scan_web_page(page, inp, browser):
                                                {'selector': table,
                                                 'data': pickle_file.name,
                                                 'xpath': xpath}})
-                    i += 1
 
     print('[TIME] FINDING TABLES --->', timedelta_format(datetime.datetime.now(), time_start_findtables))
 
@@ -331,9 +346,48 @@ def scan_web_page(page, inp, browser):
 
     print('[TIME] FINDING BULLETS --->', timedelta_format(datetime.datetime.now(), time_start_findbullets))
 
-    ##### SAVING COORDINATES OF ELEMENTS SECTION #####
+    ##### TEXTS SECTION #####
+    if incl_texts:
+        text_tags = ['p', 'strong', 'em']
+        texts = []
 
-    #browser.find_element_by_xpath('/html').screenshot('browser_view.png')
+        for text_tag in text_tags:
+            texts.extend(browser.find_elements(By.XPATH, f'//{text_tag}'))
+
+        if texts:
+            for i, text in enumerate(texts):
+                serialize_and_append_data(f'text_{i}', text)
+
+    ##### HEADLINES SECTION #####
+    if incl_headlines:
+        headlines_tags = ['h1', 'h2']
+        headlines = []
+
+        for headline_tag in headlines_tags:
+            headlines.extend(browser.find_elements(By.XPATH, f'//{headline_tag}'))
+
+        if headlines:
+            for i, headline in enumerate(headlines):
+                serialize_and_append_data(f'headline_{i}', headline)
+
+    ##### LINKS SECTION #####
+    if incl_links:
+        links = browser.find_elements(By.XPATH, '//a[@href '
+                                                'and not(contains(@id, "Menu")) '  # Exclude links in menu
+                                                'and not(contains(@id, "menu")) '  # Exclude links in menu
+                                                'and not(contains(@class, "Menu")) '  # Exclude links in menu
+                                                'and not(contains(@class, "menu")) '  # Exclude links in menu
+                                                'and not(descendant::img)'  # Exclude links in form of images
+                                                'and not(descendant::svg)'  # Exclude links in form of images
+                                                'and not(contains(@href, "javascript"))'  # Exclude links with scripts
+                                                'and not(contains(@href, "mailto"))]')  # Exclude mailto links
+
+        if links:
+            # Do not show duplicated links ?
+            for i, link in enumerate(set(links)):
+                serialize_and_append_data(f'link_{i}', link)
+
+    ##### SAVING COORDINATES OF ELEMENTS #####
 
     names = list(final_elements.keys())
     selectors = [x['selector'] for x in final_elements.values()]
@@ -412,8 +466,8 @@ def scroll_web_page(browser, inp):
             script = 'window.scrollTo(0, document.body.scrollHeight);var lenOfPage=document.body.scrollHeight;return lenOfPage;'
         else:
             try:
-                #script = f'window.scrollBy(0, {scroll_by});'       # instant scrolling
-                script = f'window.scrollBy({{top: {scroll_by}, left: 0, behavior: "smooth"}});'     # smooth scrolling
+                # script = f'window.scrollBy(0, {scroll_by});'       # instant scrolling
+                script = f'window.scrollBy({{top: {scroll_by}, left: 0, behavior: "smooth"}});'  # smooth scrolling
             except:
                 pass
     elif scroll_to == 'Up':
@@ -421,8 +475,8 @@ def scroll_web_page(browser, inp):
             script = 'window.scrollTo(0, 0)'
         else:
             try:
-                #script = f'window.scrollBy(0, -{scroll_by});'      # instant scrolling
-                script = f'window.scrollBy({{top: -{scroll_by}, left: 0, behavior: "smooth"}});'    # smooth scrolling
+                # script = f'window.scrollBy(0, -{scroll_by});'      # instant scrolling
+                script = f'window.scrollBy({{top: -{scroll_by}, left: 0, behavior: "smooth"}});'  # smooth scrolling
             except:
                 pass
 
@@ -549,11 +603,14 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
             # For headless mode different width of window is needed
             window_size_x = 1450
 
-        self.browser = webdriver.Firefox(options=options, capabilities=capabilities)
+        try:
+            self.browser = webdriver.Firefox(options=options, capabilities=capabilities,
+                                             service=Service(GeckoDriverManager().install()))
+        except:
+            self.browser = webdriver.Firefox(options=options, capabilities=capabilities)
 
         self.browser.set_window_size(window_size_x, 980)
         self.start_requests()
-
 
     def __del__(self):
         self.browser.quit()
