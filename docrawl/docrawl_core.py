@@ -12,11 +12,14 @@ from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 from selenium.webdriver import FirefoxOptions
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.firefox.service import Service
+from webdriver_manager.firefox import GeckoDriverManager
 import time
 import pynput.keyboard
 import pickle
 import os
 import shutil
+
 
 keyboard = pynput.keyboard.Controller()
 key = pynput.keyboard.Key
@@ -127,7 +130,6 @@ def scan_web_page(page, inp, browser):
         """
         Removes whitespaces from string.
             :param string: string, string to clean
-
             :return - cleaned string
         """
 
@@ -601,7 +603,11 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
             # For headless mode different width of window is needed
             window_size_x = 1450
 
-        self.browser = webdriver.Firefox(options=options, capabilities=capabilities)
+        try:
+            self.browser = webdriver.Firefox(options=options, capabilities=capabilities,
+                                             service=Service(GeckoDriverManager().install()))
+        except:
+            self.browser = webdriver.Firefox(options=options, capabilities=capabilities)
 
         self.browser.set_window_size(window_size_x, 980)
         self.start_requests()
