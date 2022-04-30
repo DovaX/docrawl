@@ -296,11 +296,11 @@ def scan_web_page(page, inp, browser):
                         '''
 
                         data = [string_cleaner(x) for x in data]  # Cleaning the text
-                        data = list(filter(None, data))  # Deleting empty strings
+
+                        #data = list(filter(None, data))  # Deleting empty strings
 
                         row.append('\n'.join(data))  # Making one string value from list
 
-                    row = list(filter(None, row))
 
                     result.append(row)
 
@@ -356,7 +356,8 @@ def scan_web_page(page, inp, browser):
 
         if texts:
             for i, text in enumerate(texts):
-                serialize_and_append_data(f'text_{i}', text)
+                if text:
+                    serialize_and_append_data(f'text_{i}', text)
 
     ##### HEADLINES SECTION #####
     if incl_headlines:
