@@ -220,20 +220,22 @@ def scan_web_page(page, inp, browser):
         path = os.path.join(pickle_folder, varname)
         xpath = generate_XPath(selector, '')
 
+
         if 'link' in varname:
-            data = selector.get_attribute('href')
             xpath += '/@href'
         else:
-            data = selector.text
             xpath += '/text()'
 
-        with open(path + '.pickle', 'wb') as pickle_file:
-            pickle.dump(data, pickle_file)
+        data = ''.join(page.xpath(xpath).extract()).strip()
 
-        final_elements.update({varname:
-                                   {'selector': selector,
-                                    'data': pickle_file.name,
-                                    'xpath': xpath}})
+        if data:
+            with open(path + '.pickle', 'wb') as pickle_file:
+                pickle.dump(data, pickle_file)
+
+            final_elements.update({varname:
+                                       {'selector': selector,
+                                        'data': pickle_file.name,
+                                        'xpath': xpath}})
 
     time_start_findtables = datetime.datetime.now()
 
@@ -348,7 +350,7 @@ def scan_web_page(page, inp, browser):
 
     ##### TEXTS SECTION #####
     if incl_texts:
-        text_tags = ['p', 'strong', 'em']
+        text_tags = ['p', 'strong', 'em'] #'div']
         texts = []
 
         for text_tag in text_tags:
@@ -356,8 +358,7 @@ def scan_web_page(page, inp, browser):
 
         if texts:
             for i, text in enumerate(texts):
-                if text:
-                    serialize_and_append_data(f'text_{i}', text)
+                serialize_and_append_data(f'text_{i}', text)
 
     ##### HEADLINES SECTION #####
     if incl_headlines:
