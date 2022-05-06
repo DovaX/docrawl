@@ -70,7 +70,7 @@ def take_screenshot(browser, inp):
 
     try:
         root_element = browser.find_element(By.XPATH, '/html')
-        root_element.screenshot(filename)
+        browser.save_full_page_screenshot(filename)
 
         browser.execute_script("return arguments[0].scrollIntoView(true);", root_element)
     except Exception as e:
@@ -220,20 +220,22 @@ def scan_web_page(page, inp, browser):
         path = os.path.join(pickle_folder, varname)
         xpath = generate_XPath(selector, '')
 
+
         if 'link' in varname:
-            data = selector.get_attribute('href')
             xpath += '/@href'
         else:
-            data = selector.text
             xpath += '/text()'
 
-        with open(path + '.pickle', 'wb') as pickle_file:
-            pickle.dump(data, pickle_file)
+        data = ''.join(page.xpath(xpath).extract()).strip()
 
-        final_elements.update({varname:
-                                   {'selector': selector,
-                                    'data': pickle_file.name,
-                                    'xpath': xpath}})
+        if data:
+            with open(path + '.pickle', 'wb') as pickle_file:
+                pickle.dump(data, pickle_file)
+
+            final_elements.update({varname:
+                                       {'selector': selector,
+                                        'data': pickle_file.name,
+                                        'xpath': xpath}})
 
     time_start_findtables = datetime.datetime.now()
 
@@ -296,11 +298,11 @@ def scan_web_page(page, inp, browser):
                         '''
 
                         data = [string_cleaner(x) for x in data]  # Cleaning the text
-                        data = list(filter(None, data))  # Deleting empty strings
+
+                        #data = list(filter(None, data))  # Deleting empty strings
 
                         row.append('\n'.join(data))  # Making one string value from list
 
-                    row = list(filter(None, row))
 
                     result.append(row)
 
@@ -348,7 +350,7 @@ def scan_web_page(page, inp, browser):
 
     ##### TEXTS SECTION #####
     if incl_texts:
-        text_tags = ['p', 'strong', 'em']
+        text_tags = ['p', 'strong', 'em'] #'div']
         texts = []
 
         for text_tag in text_tags:
