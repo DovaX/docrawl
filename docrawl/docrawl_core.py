@@ -545,7 +545,7 @@ def extract_table_xpath(page, inp):
     result = []
     trs = page.xpath(row_xpath)
     for j, tr in enumerate(trs):
-        details = page.xpath(row_xpath + "[" + str(j) + "]" + column_xpath).extract()
+        details = page.xpath(row_xpath + "[" + str(j+1) + "]" + column_xpath).extract() #j+1 because xpath indices start with 1 (not with 0)
         print(j, details)
 
         result.append(details)
