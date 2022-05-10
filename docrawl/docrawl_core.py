@@ -20,6 +20,8 @@ import pickle
 import os
 import shutil
 
+import lxml.html
+
 
 keyboard = pynput.keyboard.Controller()
 key = pynput.keyboard.Key
@@ -106,7 +108,7 @@ def scan_web_page(page, inp, browser):
     incl_links = inp[4]
 
     # Folder for serialized dataframes
-    pickle_folder = 'pickle_scraped_data'
+    pickle_folder = 'src/pickle_scraped_data'
 
     try:
         shutil.rmtree(pickle_folder)
@@ -135,40 +137,132 @@ def scan_web_page(page, inp, browser):
 
         return ''.join(string.strip()).replace('\\', '')
 
-    def find_bullets(*tags_type):
+    def find_bullets(tags, tree):
         """
-        Finds bullet lists (usual and numbered) in page.
+        Finds bullet lists (usual and numbered) on page.
             :param tags_type: list, type of bullet list tags (ul, ol)
         """
         i = 0
 
-        for tags in tags_type:
-            for tag in tags:
-                xpath = generate_XPath(tag, '')
-                tag_2 = page.xpath(xpath)[0]
-                result = []
-                li_tags = tag_2.xpath('.//li')
+        for tag in tags:
+            xpath = find_element_xpath(tree, i)
+            tag_2 = page.xpath(xpath)[0]
+            result = []
+            li_tags = tag_2.xpath('.//li')
 
-                for li_tag in li_tags:
-                    data = li_tag.xpath('.//text()').getall()
-                    data = [string_cleaner(x) for x in data]  # Cleaning the text
-                    data = list(filter(None, data))
+            for li_tag in li_tags:
+                data = li_tag.xpath('.//text()').getall()
+                data = [string_cleaner(x) for x in data]  # Cleaning the text
+                data = list(filter(None, data))
 
-                    element = ' '.join(data).replace(u'\xa0', u' ')
+                element = ' '.join(data).replace(u'\xa0', u' ')
 
-                    result.append(element + '\n')
+                result.append(element + '\n')
 
-                # If list contains > 1 element
-                if len(result) > 1:
-                    serialize_and_append_data(f'bullet_{i}', tag)
-                    i += 1
+            # If list contains > 1 element
+            if len(result) > 1:
+
+                path = os.path.join(pickle_folder, f'bullet_{i}')
+
+                with open(path + '.pickle', 'wb') as pickle_file:
+                    pickle.dump(result, pickle_file)
+
+                xpath += '//li//text()'
+
+                final_elements.update({f'bullet_{i}':
+                                           {'selector': tag,
+                                            'data': pickle_file.name,
+                                            'xpath': xpath}})
+
+                i += 1
+
+    def save_coordinates_of_elements(selectors, names, xpaths, data):
+        """
+        Saves coordinates of elements (tables, bullet lists, text elements, headlines, links), that could be potentially exported.
+        """
+        elems_pos = []
+
+        for selector, name, xpath, data in zip(selectors, names, xpaths, data):
+            elems_pos.append({'rect': selector.rect,
+                              'name': name,
+                              'xpath': xpath,
+                              'data': data})
+
+        elements_positions = elems_pos
+        elements_positions = VarSafe(elements_positions, 'elements_positions', 'elements_positions')
+
+        save_variables(kept_variables, 'elements_positions.kpv')
+
+    def serialize_and_append_data(element_name, selector, xpath):
+        """
+        Serializes data behind the element and updates dictionary with final elements
+            :param element_name: variable name to save
+            :param selector: Selenium Selector
+        """
+
+        path = os.path.join(pickle_folder, element_name)
+
+        if 'link' in element_name:
+            xpath += '/@href'
+        else:
+            xpath += '//text()'
+
+        data = ''.join(page.xpath(xpath).extract()).strip()
+
+        if data:
+            with open(path + '.pickle', 'wb') as pickle_file:
+                pickle.dump(data, pickle_file)
+
+            final_elements.update({element_name:
+                                       {'selector': selector,
+                                        'data': pickle_file.name,
+                                        'xpath': xpath}})
+
+    def find_elements(tags, element_name):
+        """
+        Finds elements on page using Selenium Selector and HTML Parser
+            :param tags: list of tags
+            :param element_name: type of element (table, bulelt, text, headline, link, ...)
+        """
+
+        elements = []
+        elements_tree = []
+
+        for tag in tags:
+            elements_tree.extend(tree.xpath(f'//{tag}'))
+            elements.extend(browser.find_elements(By.XPATH, f'//{tag}'))
+
+        if elements:
+            for i, element in enumerate(elements):
+                try:
+                    xpath = find_element_xpath(elements_tree, i)
+                    serialize_and_append_data(f'{element_name}_{i}', element, xpath)
+                except:
+                    pass
+
+    innerHTML = browser.execute_script("return document.body.innerHTML")
+    tree = lxml.html.fromstring(innerHTML)
+
+    def find_element_xpath(tree, i):
+        """
+        Finds the XPath of element using HTML parser.
+            :param tree: list of elements
+            :param i: element's number
+        """
+
+        xpath = tree[i].getroottree().getpath(tree[i])
+        xpath = xpath.split('/')
+        xpath[2] = 'body'       # For some reason getpath() generates <div> instead of <body>
+        xpath = '/'.join(xpath)
+
+        return xpath
 
     def generate_XPath(childElement, current):
         """
-        Generates XPath of Selenium object. Recursive function.
+        [OLD FUNCTION, NOT USED NOW -> TO BE DEPRECATED] Generates XPath of Selenium object.
+         Recursive function.
             :param childElement: Selenium Selector
             :param current: string, current XPath
-
             :return - XPath
         """
 
@@ -193,68 +287,20 @@ def scan_web_page(page, inp, browser):
 
         return None
 
-    def save_coordinates_of_elements(selectors, names, xpaths, data):
-        """
-        Saves coordinates of elements (tables, bullet lists, text elements, headlines, links), that could be potentially exported.
-        """
-        elems_pos = []
-
-        for selector, name, xpath, data in zip(selectors, names, xpaths, data):
-            elems_pos.append({'rect': selector.rect,
-                              'name': name,
-                              'xpath': xpath,
-                              'data': data})
-
-        elements_positions = elems_pos
-        elements_positions = VarSafe(elements_positions, 'elements_positions', 'elements_positions')
-
-        save_variables(kept_variables, 'elements_positions.kpv')
-
-    def serialize_and_append_data(varname, selector):
-        """
-        Serializes data behind the element and updates dictionary with final elements
-            :param varname: variable name to save
-            :param selector: Selenium Selector
-        """
-
-        path = os.path.join(pickle_folder, varname)
-        xpath = generate_XPath(selector, '')
-
-
-        if 'link' in varname:
-            xpath += '/@href'
-        else:
-            xpath += '/text()'
-
-        data = ''.join(page.xpath(xpath).extract()).strip()
-
-        if data:
-            with open(path + '.pickle', 'wb') as pickle_file:
-                pickle.dump(data, pickle_file)
-
-            final_elements.update({varname:
-                                       {'selector': selector,
-                                        'data': pickle_file.name,
-                                        'xpath': xpath}})
-
-    time_start_findtables = datetime.datetime.now()
-
     ##### TABLES SECTION #####
     if incl_tables:
         xpath = '//table'
         # tables = page.xpath(xpath)
         tables = browser.find_elements(By.XPATH, '//table')
+        tables_tree = tree.xpath('//table')
 
         if tables:
             for i, table in enumerate(tables):
-                time_start_xpathtable = datetime.datetime.now()
-
                 if len(table.find_elements(By.XPATH, './/tr')) < 2:
                     continue
 
-                xpath = generate_XPath(table, '')
-                print('[TIME] GENERATING XPATH OF TABLE ----->',
-                      timedelta_format(datetime.datetime.now(), time_start_xpathtable))
+                xpath = find_element_xpath(tables_tree, i)
+
                 table_2 = page.xpath(xpath)[0]
 
                 result = []  # data
@@ -332,62 +378,50 @@ def scan_web_page(page, inp, browser):
                                                 'data': pickle_file.name,
                                                 'xpath': xpath}})
 
-    print('[TIME] FINDING TABLES --->', timedelta_format(datetime.datetime.now(), time_start_findtables))
-
     ##### BULLET SECTION #####
-
-    time_start_findbullets = datetime.datetime.now()
-
     if incl_bullets:
         # <li> inside <ol> don't contain numbers, but they could be added here
         ul_tags = browser.find_elements(By.XPATH, '//ul')  # Usual bullet lists
         ol_tags = browser.find_elements(By.XPATH, '//ol')  # Bullet numbered lists
 
-        if ul_tags or ol_tags:
-            bullets = find_bullets(ul_tags, ol_tags)
+        bullet_tags = ['ul', 'ol']
 
-    print('[TIME] FINDING BULLETS --->', timedelta_format(datetime.datetime.now(), time_start_findbullets))
+        elements = []
+        elements_tree = []
+        for bullet_tag in bullet_tags:
+            elements_tree.extend(tree.xpath(f'//{bullet_tag}'))
+            elements.extend(browser.find_elements(By.XPATH, f'//{bullet_tag}'))
+
+        find_bullets(elements, elements_tree)
 
     ##### TEXTS SECTION #####
     if incl_texts:
         text_tags = ['p', 'strong', 'em'] #'div']
-        texts = []
-
-        for text_tag in text_tags:
-            texts.extend(browser.find_elements(By.XPATH, f'//{text_tag}'))
-
-        if texts:
-            for i, text in enumerate(texts):
-                serialize_and_append_data(f'text_{i}', text)
+        find_elements(text_tags, 'text')
 
     ##### HEADLINES SECTION #####
     if incl_headlines:
         headlines_tags = ['h1', 'h2']
-        headlines = []
-
-        for headline_tag in headlines_tags:
-            headlines.extend(browser.find_elements(By.XPATH, f'//{headline_tag}'))
-
-        if headlines:
-            for i, headline in enumerate(headlines):
-                serialize_and_append_data(f'headline_{i}', headline)
+        find_elements(headlines_tags, 'headline')
 
     ##### LINKS SECTION #####
     if incl_links:
-        links = browser.find_elements(By.XPATH, '//a[@href '
-                                                'and not(contains(@id, "Menu")) '  # Exclude links in menu
-                                                'and not(contains(@id, "menu")) '  # Exclude links in menu
-                                                'and not(contains(@class, "Menu")) '  # Exclude links in menu
-                                                'and not(contains(@class, "menu")) '  # Exclude links in menu
-                                                'and not(descendant::img)'  # Exclude links in form of images
-                                                'and not(descendant::svg)'  # Exclude links in form of images
-                                                'and not(contains(@href, "javascript"))'  # Exclude links with scripts
-                                                'and not(contains(@href, "mailto"))]')  # Exclude mailto links
+        # <a> tags, exceluding links in menu, links as images, mailto links and links with scripts
+        tag =   """
+                a[@href
+                and not(contains(@id, "Menu"))  
+                and not(contains(@id, "menu"))  
+                and not(contains(@class, "Menu"))  
+                and not(contains(@class, "menu"))   
+                and not(descendant::img) 
+                and not(descendant::svg)  
+                and not(contains(@href, "javascript"))  
+                and not(contains(@href, "mailto"))]
+                """
 
-        if links:
-            # Do not show duplicated links ?
-            for i, link in enumerate(set(links)):
-                serialize_and_append_data(f'link_{i}', link)
+        links_tag = [tag]
+
+        find_elements(links_tag, 'link')
 
     ##### SAVING COORDINATES OF ELEMENTS #####
 
@@ -499,6 +533,7 @@ def extract_xpath(page, inp):
         write_in_file_mode = inp[2]
     except:
         write_in_file_mode = "w+"
+
     data = page.xpath(xpath).extract()
 
     if not data:
@@ -506,12 +541,15 @@ def extract_xpath(page, inp):
 
     # print("DATA",data)
     with open(filename, write_in_file_mode, encoding="utf-8") as f:
-        for i, row in enumerate(data):
-            # print("B",i,row)
-            row = row.strip()
+        if isinstance(data, list):
+            for i, row in enumerate(data):
+                # print("B",i,row)
+                row = row.strip()
 
-            if row:
-                f.write(row.strip() + "\n")
+                if row:
+                    f.write(row.strip() + "\n")
+        else:
+            f.write(data.strip())
         # print("C")
     # print(data)
 
