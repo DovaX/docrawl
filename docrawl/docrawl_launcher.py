@@ -181,7 +181,7 @@ def extract_multiple_xpath(xpaths, filename="extracted_data.xlsx"):
     # docrawl_core.spider_requests={"url":url,"loaded":False}
 
 
-def extract_table_xpath(xpath_row, xpath_col, filename="extracted_data.xlsx"):
+def extract_table_xpath(xpath_row, xpath_col, first_row_header, filename="extracted_data.xlsx"):
     # function = "exec"
     args = xpath_row
     if type(args) == list:
@@ -189,7 +189,7 @@ def extract_table_xpath(xpath_row, xpath_col, filename="extracted_data.xlsx"):
     else:
         command = args
 
-    command = [xpath_row, xpath_col, filename]
+    command = [xpath_row, xpath_col, filename, first_row_header]
     # command=command.replace("'","$")
     # command=command.replace('"','€')
 

@@ -23,7 +23,6 @@ import re
 
 import lxml.html
 
-
 keyboard = pynput.keyboard.Controller()
 key = pynput.keyboard.Key
 
@@ -136,7 +135,7 @@ def scan_web_page(page, inp, browser):
                        'bullet': BULLET_TAGS,
                        'text': TEXT_TAGS,
                        'headline': HEADLINE_TAGS,
-                       'link': LINK_TAGS + ['a']} # + ['a'] is to identify link tags when using custom XPath
+                       'link': LINK_TAGS + ['a']}  # + ['a'] is to identify link tags when using custom XPath
 
     try:
         shutil.rmtree(PICKLE_FOLDER)
@@ -359,7 +358,7 @@ def scan_web_page(page, inp, browser):
 
         xpath = tree[i].getroottree().getpath(tree[i])
         xpath = xpath.split('/')
-        xpath[2] = 'body'       # For some reason getpath() generates <div> instead of <body>
+        xpath[2] = 'body'  # For some reason getpath() generates <div> instead of <body>
         xpath = '/'.join(xpath)
 
         return xpath
@@ -417,8 +416,8 @@ def scan_web_page(page, inp, browser):
     ##### CUSTOM XPATH SECTION #####
     if by_xpath:
         custom_tag = [by_xpath]
-        custom_tag_splitted = re.split('//|/',  by_xpath)    # Split XPath in parts
-        last_element_in_xpath = custom_tag_splitted[-1]     # Last element in XPath
+        custom_tag_splitted = re.split('//|/', by_xpath)  # Split XPath in parts
+        last_element_in_xpath = custom_tag_splitted[-1]  # Last element in XPath
 
         # Default element's name
         element_name = 'element'
@@ -587,28 +586,77 @@ def extract_table_xpath(page, inp):
     row_xpath = inp[0]
     column_xpath = inp[1]
     filename = inp[2]  # "extracted_data.txt"
+    first_row_header = inp[3]
 
     result = []
     trs = page.xpath(row_xpath)
-    for j, tr in enumerate(trs):
-        details = page.xpath(row_xpath + "[" + str(j + 1) + "]" + column_xpath).extract() #j+1 because xpath indices start with 1 (not with 0)
-        print(j, details)
+    ths = page.xpath(row_xpath + '//th')
+    headers = []
 
-        result.append(details)
+    # Try to find headers within <th> tags
+    for th_tag in ths:
+        headers.append(''.join(th_tag.xpath('.//text()').extract()).replace('\n', '').replace('\t', ''))
 
-    short_filename = filename.split(".txt")[0]
-    df = pd.DataFrame(result)
-    df.to_excel(short_filename + ".xlsx")
+    if trs:
+        for j, tr in enumerate(trs):
+            xp = row_xpath + "[" + str(j + 1) + "]" + column_xpath
 
-    data = result
+            td_tags = page.xpath(xp)
+            row = []
+            for td in td_tags:
+                data = td.xpath('.//text()').getall()
 
-    print("DATA", data)
-    with open(filename, "w+", encoding="utf-8") as f:
-        pass
-        # for i,row in enumerate(data):
-        # print("B",i,row)
-        # f.write(row+"\n")
-        # print("C")
+                '''r
+                    Some table cells include \n or unicode symbols,
+                    so that creates unneccesary "empty" columns and thus
+                    the number of columns doesn't meet the real one
+                '''
+
+                data = [''.join(x.strip()).replace('\\', '') for x in data]  # Cleaning the text
+
+                # data = list(filter(None, data))  # Deleting empty strings
+
+                row.append('\n'.join(data).strip())  # Making one string value from list
+
+            # details = page.xpath(xp).extract() #j+1 because xpath indices start with 1 (not with 0)
+
+            # print(j, details)
+
+            # If first row should be headers and headers were not defined before
+            if first_row_header and not headers:
+                headers = row
+            else:
+                result.append(row)
+
+    short_filename = filename.split(".pickle")[0]
+
+    if headers:
+        # print('HEADERS', headers)
+
+        # Could be the situation when len of headers is not the same as len of row
+        try:
+            df = pd.DataFrame(result, columns=headers)
+        except:
+            df = pd.DataFrame(result)
+    else:
+        df = pd.DataFrame(result)
+
+    # Remove empty rows
+    df.dropna(axis=0, how='all', inplace=True)
+    df.to_excel(short_filename + '.xlsx')
+
+    with open(filename, 'wb') as pickle_file:
+        pickle.dump(df, pickle_file)
+
+    # data = result
+
+    # print("DATA", data)
+    # with open(filename, "w+", encoding="utf-8") as f:
+    # pass
+    # for i,row in enumerate(data):
+    # print("B",i,row)
+    # f.write(row+"\n")
+    # print("C")
     # print(data)
 
 
