@@ -69,12 +69,22 @@ def take_screenshot(browser, inp):
     """
 
     filename = inp[0]
-
+    '''
     try:
         root_element = browser.find_element(By.XPATH, '/html')
         browser.save_full_page_screenshot(filename)
 
         browser.execute_script("return arguments[0].scrollIntoView(true);", root_element)
+    except Exception as e:
+        print('Error while taking page screenshot!', e)
+    '''
+    try:
+        root_element = browser.find_element(By.XPATH, '/html')
+        string = browser.get_full_page_screenshot_as_base64()
+        browser.execute_script("return arguments[0].scrollIntoView(true);", root_element)
+
+        with open(filename, "w+") as fh:
+            fh.write(string)
     except Exception as e:
         print('Error while taking page screenshot!', e)
 
