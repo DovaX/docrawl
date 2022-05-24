@@ -513,9 +513,12 @@ def scroll_web_page(browser, inp):
 
     scroll_to = inp[0]
     scroll_by = inp[1]
+    scroll_max = inp[2]
+
+    script = ''
 
     if scroll_to == 'Down':
-        if scroll_by == 'max':
+        if scroll_max:
             script = 'window.scrollTo(0, document.body.scrollHeight);var lenOfPage=document.body.scrollHeight;return lenOfPage;'
         else:
             try:
@@ -524,7 +527,7 @@ def scroll_web_page(browser, inp):
             except:
                 pass
     elif scroll_to == 'Up':
-        if scroll_by == 'max':
+        if scroll_max:
             script = 'window.scrollTo(0, 0)'
         else:
             try:
@@ -533,7 +536,8 @@ def scroll_web_page(browser, inp):
             except:
                 pass
 
-    browser.execute_script(script)
+    if script:
+        browser.execute_script(script)
 
 
 def click_xpath(browser, xpath):
