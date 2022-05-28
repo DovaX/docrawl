@@ -513,23 +513,23 @@ def scroll_web_page(browser, inp):
 
     scroll_to = inp[0]
     scroll_by = inp[1]
-    scroll_max = inp[2]
+    #scroll_max = inp[2]
 
     script = ''
 
     if scroll_to == 'Down':
-        if scroll_max:
-            script = 'window.scrollTo(0, document.body.scrollHeight);var lenOfPage=document.body.scrollHeight;return lenOfPage;'
-        else:
+        #if scroll_max:
+            #script = 'window.scrollTo(0, document.body.scrollHeight);var lenOfPage=document.body.scrollHeight;return lenOfPage;'
+        #else:
             try:
                 # script = f'window.scrollBy(0, {scroll_by});'       # instant scrolling
                 script = f'window.scrollBy({{top: {scroll_by}, left: 0, behavior: "smooth"}});'  # smooth scrolling
             except:
                 pass
     elif scroll_to == 'Up':
-        if scroll_max:
-            script = 'window.scrollTo(0, 0)'
-        else:
+        #if scroll_max:
+            #script = 'window.scrollTo(0, 0)'
+        #else:
             try:
                 # script = f'window.scrollBy(0, -{scroll_by});'      # instant scrolling
                 script = f'window.scrollBy({{top: -{scroll_by}, left: 0, behavior: "smooth"}});'  # smooth scrolling
