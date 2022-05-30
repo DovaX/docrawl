@@ -19,9 +19,9 @@ import pynput.keyboard
 import pickle
 import os
 import shutil
+import re
 
 import lxml.html
-
 
 keyboard = pynput.keyboard.Controller()
 key = pynput.keyboard.Key
@@ -69,12 +69,22 @@ def take_screenshot(browser, inp):
     """
 
     filename = inp[0]
-
+    '''
     try:
         root_element = browser.find_element(By.XPATH, '/html')
         browser.save_full_page_screenshot(filename)
 
         browser.execute_script("return arguments[0].scrollIntoView(true);", root_element)
+    except Exception as e:
+        print('Error while taking page screenshot!', e)
+    '''
+    try:
+        root_element = browser.find_element(By.XPATH, '/html')
+        string = browser.get_full_page_screenshot_as_base64()
+        browser.execute_script("return arguments[0].scrollIntoView(true);", root_element)
+
+        with open(filename, "w+") as fh:
+            fh.write(string)
     except Exception as e:
         print('Error while taking page screenshot!', e)
 
@@ -106,19 +116,50 @@ def scan_web_page(page, inp, browser):
     incl_texts = inp[2]
     incl_headlines = inp[3]
     incl_links = inp[4]
+    by_xpath = inp[5]
 
     # Folder for serialized dataframes
-    pickle_folder = 'src/pickle_scraped_data'
+    PICKLE_FOLDER = 'src/pickle_scraped_data'
+
+    # Predefined tags by type
+    TABLE_TAG = ['table']
+    BULLET_TAGS = ['ul', 'ol']
+    TEXT_TAGS = ['p', 'strong', 'em']  # 'div']
+    HEADLINE_TAGS = ['h1', 'h2']
+
+    # <a> tags, exceluding links in menu, links as images, mailto links and links with scripts
+    LINK_TAGS = ["""
+                    a[@href
+                    and not(contains(@id, "Menu"))  
+                    and not(contains(@id, "menu"))  
+                    and not(contains(@class, "Menu"))  
+                    and not(contains(@class, "menu"))   
+                    and not(descendant::img) 
+                    and not(descendant::svg)  
+                    and not(contains(@href, "javascript"))  
+                    and not(contains(@href, "mailto"))]
+                    """]
+
+    # All predefined tags
+    PREDEFINED_TAGS = {'table': TABLE_TAG,
+                       'bullet': BULLET_TAGS,
+                       'text': TEXT_TAGS,
+                       'headline': HEADLINE_TAGS,
+                       'link': LINK_TAGS + ['a']}  # + ['a'] is to identify link tags when using custom XPath
 
     try:
-        shutil.rmtree(pickle_folder)
+        shutil.rmtree(PICKLE_FOLDER)
     except:
         pass
     finally:
-        os.mkdir(pickle_folder)
+        os.mkdir(PICKLE_FOLDER)
 
     # Dictionary with elements (XPaths, data)
     final_elements = {}
+
+    # Page source for parser
+    innerHTML = browser.execute_script("return document.body.innerHTML")
+    tree = lxml.html.fromstring(innerHTML)
 
     time_start_f = datetime.datetime.now()
 
@@ -126,6 +167,7 @@ def scan_web_page(page, inp, browser):
         delta = end - start
         sec = delta.seconds
         microsec = delta.microseconds
+
         return f'{sec}:{microsec}'
 
     def string_cleaner(string):
@@ -137,44 +179,26 @@ def scan_web_page(page, inp, browser):
 
         return ''.join(string.strip()).replace('\\', '')
 
-    def find_bullets(tags, tree):
+    def process_bullet(xpath):
         """
-        Finds bullet lists (usual and numbered) on page.
-            :param tags_type: list, type of bullet list tags (ul, ol)
+        Processes (cleans) bullet element, e.g. one <li> element per line
+            :param xpath: XPath of element
         """
-        i = 0
 
-        for tag in tags:
-            xpath = find_element_xpath(tree, i)
-            tag_2 = page.xpath(xpath)[0]
-            result = []
-            li_tags = tag_2.xpath('.//li')
+        tag_2 = page.xpath(xpath)[0]
+        result = []
+        li_tags = tag_2.xpath('.//li')
 
-            for li_tag in li_tags:
-                data = li_tag.xpath('.//text()').getall()
-                data = [string_cleaner(x) for x in data]  # Cleaning the text
-                data = list(filter(None, data))
+        # <li> inside <ol> don't contain numbers, but they could be added here
+        for li_tag in li_tags:
+            data = li_tag.xpath('.//text()').getall()
+            data = [string_cleaner(x) for x in data]  # Cleaning the text
+            data = list(filter(None, data))
+            element = ' '.join(data).replace(u'\xa0', u' ')
 
-                element = ' '.join(data).replace(u'\xa0', u' ')
+            result.append(element + '\n')
 
-                result.append(element + '\n')
-
-            # If list contains > 1 element
-            if len(result) > 1:
-
-                path = os.path.join(pickle_folder, f'bullet_{i}')
-
-                with open(path + '.pickle', 'wb') as pickle_file:
-                    pickle.dump(result, pickle_file)
-
-                xpath += '//li//text()'
-
-                final_elements.update({f'bullet_{i}':
-                                           {'selector': tag,
-                                            'data': pickle_file.name,
-                                            'xpath': xpath}})
-
-                i += 1
+        return result
 
     def save_coordinates_of_elements(selectors, names, xpaths, data):
         """
@@ -198,50 +222,142 @@ def scan_web_page(page, inp, browser):
         Serializes data behind the element and updates dictionary with final elements
             :param element_name: variable name to save
             :param selector: Selenium Selector
+            :param xpath: XPath of element
         """
 
-        path = os.path.join(pickle_folder, element_name)
+        path = os.path.join(PICKLE_FOLDER, element_name)
 
-        if 'link' in element_name:
-            xpath += '/@href'
+        if 'table' in element_name:
+            table_2 = page.xpath(xpath)[0]
+
+            result = []  # data
+            titles = []  # columns' names
+            tr_tags = table_2.xpath('.//tr')  # <tr> = table row
+            th_tags = table_2.xpath('.//th')  # <th> = table header (non-essential, so if any)
+
+            for th_tag in th_tags:
+                titles.append(''.join(th_tag.xpath('.//text()').extract()).replace('\n', '').replace('\t', ''))
+
+            for tr_tag in tr_tags:
+                td_tags = tr_tag.xpath('.//td')  # <td> = table data
+
+                row = []
+
+                '''
+                    # Sometimes between td tags there more than 1 tag with text, so that would
+                    # be proceeded as separate values despite of fact it should be in one cell.
+                    # That's why the further loop is needed. The result of it is a list of strings,
+                    # that should be in one cell later in dataframe.
+
+                    # Example: 
+
+                    <td>
+                        <a>Text 1</a>
+                        <a>Text 2</a>
+                    </td>
+
+                    # Without loop it would be two strings ("Text 1", "Text 2") and thus they 
+                    # will be in 2 differrent columns. With loop the result would be ["Text 1", "Text 2"] 
+                    # and after join method - "Text 1 Text 2" in just one cell (column).
+               '''
+
+                for td_tag in td_tags:
+                    data = td_tag.xpath('.//text()').getall()
+
+                    '''
+                        Some table cells include \n or unicode symbols,
+                        so that creates unneccesary "empty" columns and thus
+                        the number of columns doesn't meet the real one
+                    '''
+
+                    data = [string_cleaner(x) for x in data]  # Cleaning the text
+
+                    # data = list(filter(None, data))  # Deleting empty strings
+
+                    row.append('\n'.join(data))  # Making one string value from list
+
+                result.append(row)
+
+                if not titles:  # If table doesn't have <th> tags -> use first row as titles
+                    titles = row  # TODO: IF USER SELECTS THE TABLE, ASK HIM, WHETHER HE WANTS TO HAVE 1 ROW AS TITLES
+
+            try:
+                # If number of columns' names (titles) is the same as number of columns
+                df = pd.DataFrame(result, columns=titles)
+            except Exception:
+                df = pd.DataFrame(result)
+
+            df = df.iloc[1:, :]  # Removing empty row at the beginning of dataframe
+
+            df.dropna(axis=0, how='all', inplace=True)
+
+            # If dataframe is not empty
+            if not df.dropna().empty and len(df.columns) > 1 and len(df) > 1:
+                # Serialize DataFrame
+
+                with open(path + '.pickle', 'wb') as pickle_file:
+                    pickle.dump(df, pickle_file)
+
+        elif 'bullet' in element_name:
+            data = process_bullet(xpath)
+            xpath += '//li//text()'
+
+            if len(data) > 1:
+                with open(path + '.pickle', 'wb') as pickle_file:
+                    pickle.dump(data, pickle_file)
+
         else:
-            xpath += '//text()'
+            if 'link' in element_name:
+                xpath += '/@href'
+            elif 'element' in element_name:
+                pass
+            else:
+                xpath += '//text()'
 
-        data = ''.join(page.xpath(xpath).extract()).strip()
+            data = ''.join(page.xpath(xpath).extract()).strip()
 
-        if data:
-            with open(path + '.pickle', 'wb') as pickle_file:
-                pickle.dump(data, pickle_file)
+            if data:
+                with open(path + '.pickle', 'wb') as pickle_file:
+                    pickle.dump(data, pickle_file)
 
-            final_elements.update({element_name:
-                                       {'selector': selector,
-                                        'data': pickle_file.name,
-                                        'xpath': xpath}})
+        final_elements.update({element_name:
+                                   {'selector': selector,
+                                    'data': pickle_file.name,
+                                    'xpath': xpath}})
 
-    def find_elements(tags, element_name):
+    def find_elements(tags, element_name, custom_tag=False):
         """
         Finds elements on page using Selenium Selector and HTML Parser
             :param tags: list of tags
             :param element_name: type of element (table, bulelt, text, headline, link, ...)
+            :param custom_tag: if provided tag is custom (not predefined)
         """
 
         elements = []
         elements_tree = []
 
+        # If tag is not predefined -> there is no need to add prefix
+        if not custom_tag:
+            prefix = '//'
+        else:
+            prefix = ''
+
         for tag in tags:
-            elements_tree.extend(tree.xpath(f'//{tag}'))
-            elements.extend(browser.find_elements(By.XPATH, f'//{tag}'))
+            elements_tree.extend(tree.xpath(f'{prefix}{tag}'))
+            elements.extend(browser.find_elements(By.XPATH, f'{prefix}{tag}'))
 
         if elements:
             for i, element in enumerate(elements):
+                # Skip tables with no rows
+
+                if element_name == 'table' and len(element.find_elements(By.XPATH, './/tr')) < 2:
+                    continue
+
                 try:
                     xpath = find_element_xpath(elements_tree, i)
                     serialize_and_append_data(f'{element_name}_{i}', element, xpath)
                 except:
                     pass
-
-    innerHTML = browser.execute_script("return document.body.innerHTML")
-    tree = lxml.html.fromstring(innerHTML)
 
     def find_element_xpath(tree, i):
         """
@@ -252,7 +368,7 @@ def scan_web_page(page, inp, browser):
 
         xpath = tree[i].getroottree().getpath(tree[i])
         xpath = xpath.split('/')
-        xpath[2] = 'body'       # For some reason getpath() generates <div> instead of <body>
+        xpath[2] = 'body'  # For some reason getpath() generates <div> instead of <body>
         xpath = '/'.join(xpath)
 
         return xpath
@@ -289,139 +405,40 @@ def scan_web_page(page, inp, browser):
 
     ##### TABLES SECTION #####
     if incl_tables:
-        xpath = '//table'
-        # tables = page.xpath(xpath)
-        tables = browser.find_elements(By.XPATH, '//table')
-        tables_tree = tree.xpath('//table')
-
-        if tables:
-            for i, table in enumerate(tables):
-                if len(table.find_elements(By.XPATH, './/tr')) < 2:
-                    continue
-
-                xpath = find_element_xpath(tables_tree, i)
-
-                table_2 = page.xpath(xpath)[0]
-
-                result = []  # data
-                titles = []  # columns' names
-                tr_tags = table_2.xpath('.//tr')  # <tr> = table row
-                th_tags = table_2.xpath('.//th')  # <th> = table header (non-essential, so if any)
-
-                for th_tag in th_tags:
-                    titles.append(''.join(th_tag.xpath('.//text()').extract()).replace('\n', '').replace('\t', ''))
-
-                for tr_tag in tr_tags:
-                    td_tags = tr_tag.xpath('.//td')  # <td> = table data
-
-                    row = []
-
-                    '''
-                        # Sometimes between td tags there more than 1 tag with text, so that would
-                        # be proceeded as separate values despite of fact it should be in one cell.
-                        # That's why the further loop is needed. The result of it is a list of strings,
-                        # that should be in one cell later in dataframe.
-
-                        # Example: 
-
-                        <td>
-                            <a>Text 1</a>
-                            <a>Text 2</a>
-                        </td>
-
-                        # Without loop it would be two strings ("Text 1", "Text 2") and thus they 
-                        # will be in 2 differrent columns. With loop the result would be ["Text 1", "Text 2"] 
-                        # and after join method - "Text 1 Text 2" in just one cell (column).
-                   '''
-
-                    for td_tag in td_tags:
-                        data = td_tag.xpath('.//text()').getall()
-
-                        '''
-                            Some table cells include \n or unicode symbols,
-                            so that creates unneccesary "empty" columns and thus
-                            the number of columns doesn't meet the real one
-                        '''
-
-                        data = [string_cleaner(x) for x in data]  # Cleaning the text
-
-                        #data = list(filter(None, data))  # Deleting empty strings
-
-                        row.append('\n'.join(data))  # Making one string value from list
-
-
-                    result.append(row)
-
-                    if not titles:  # If table doesn't have <th> tags -> use first row as titles
-                        titles = row  # TODO: IF USER SELECTS THE TABLE, ASK HIM, WHETHER HE WANTS TO HAVE 1 ROW AS TITLES
-
-                try:
-                    # If number of columns' names (titles) is the same as number of columns
-                    df = pd.DataFrame(result, columns=titles)
-                except Exception:
-                    df = pd.DataFrame(result)
-
-                df = df.iloc[1:, :]  # Removing empty row at the beginning of dataframe
-
-                df.dropna(axis=0, how='all', inplace=True)
-
-                # If dataframe is not empty
-                if not df.dropna().empty and len(df.columns) > 1 and len(df) > 1:
-                    # Serialize DataFrame
-                    path = os.path.join(pickle_folder, f'table_{i}')
-
-                    with open(path + '.pickle', 'wb') as pickle_file:
-                        pickle.dump(df, pickle_file)
-
-                    final_elements.update({f'table_{i}':
-                                               {'selector': table,
-                                                'data': pickle_file.name,
-                                                'xpath': xpath}})
+        find_elements(TABLE_TAG, 'table')
 
     ##### BULLET SECTION #####
     if incl_bullets:
-        # <li> inside <ol> don't contain numbers, but they could be added here
-        ul_tags = browser.find_elements(By.XPATH, '//ul')  # Usual bullet lists
-        ol_tags = browser.find_elements(By.XPATH, '//ol')  # Bullet numbered lists
-
-        bullet_tags = ['ul', 'ol']
-
-        elements = []
-        elements_tree = []
-        for bullet_tag in bullet_tags:
-            elements_tree.extend(tree.xpath(f'//{bullet_tag}'))
-            elements.extend(browser.find_elements(By.XPATH, f'//{bullet_tag}'))
-
-        find_bullets(elements, elements_tree)
+        find_elements(BULLET_TAGS, 'bullet')
 
     ##### TEXTS SECTION #####
     if incl_texts:
-        text_tags = ['p', 'strong', 'em'] #'div']
-        find_elements(text_tags, 'text')
+        find_elements(TEXT_TAGS, 'text')
 
     ##### HEADLINES SECTION #####
     if incl_headlines:
-        headlines_tags = ['h1', 'h2']
-        find_elements(headlines_tags, 'headline')
+        find_elements(HEADLINE_TAGS, 'headline')
 
     ##### LINKS SECTION #####
     if incl_links:
-        # <a> tags, exceluding links in menu, links as images, mailto links and links with scripts
-        tag =   """
-                a[@href
-                and not(contains(@id, "Menu"))  
-                and not(contains(@id, "menu"))  
-                and not(contains(@class, "Menu"))  
-                and not(contains(@class, "menu"))   
-                and not(descendant::img) 
-                and not(descendant::svg)  
-                and not(contains(@href, "javascript"))  
-                and not(contains(@href, "mailto"))]
-                """
+        find_elements(LINK_TAGS, 'link')
 
-        links_tag = [tag]
+    ##### CUSTOM XPATH SECTION #####
+    if by_xpath:
+        custom_tag = [by_xpath]
+        custom_tag_splitted = re.split('//|/', by_xpath)  # Split XPath in parts
+        last_element_in_xpath = custom_tag_splitted[-1]  # Last element in XPath
 
-        find_elements(links_tag, 'link')
+        # Default element's name
+        element_name = 'element'
+
+        # Try to find last element in XPath in predefined tags to identify element name
+        for element_type, predefined_tags in PREDEFINED_TAGS.items():
+            if any([last_element_in_xpath.startswith(x) for x in predefined_tags]):
+                element_name = element_type
+                break
+
+        find_elements(custom_tag, element_name, custom_tag=True)
 
     ##### SAVING COORDINATES OF ELEMENTS #####
 
@@ -496,27 +513,31 @@ def scroll_web_page(browser, inp):
 
     scroll_to = inp[0]
     scroll_by = inp[1]
+    #scroll_max = inp[2]
+
+    script = ''
 
     if scroll_to == 'Down':
-        if scroll_by == 'max':
-            script = 'window.scrollTo(0, document.body.scrollHeight);var lenOfPage=document.body.scrollHeight;return lenOfPage;'
-        else:
+        #if scroll_max:
+            #script = 'window.scrollTo(0, document.body.scrollHeight);var lenOfPage=document.body.scrollHeight;return lenOfPage;'
+        #else:
             try:
                 # script = f'window.scrollBy(0, {scroll_by});'       # instant scrolling
                 script = f'window.scrollBy({{top: {scroll_by}, left: 0, behavior: "smooth"}});'  # smooth scrolling
             except:
                 pass
     elif scroll_to == 'Up':
-        if scroll_by == 'max':
-            script = 'window.scrollTo(0, 0)'
-        else:
+        #if scroll_max:
+            #script = 'window.scrollTo(0, 0)'
+        #else:
             try:
                 # script = f'window.scrollBy(0, -{scroll_by});'      # instant scrolling
                 script = f'window.scrollBy({{top: -{scroll_by}, left: 0, behavior: "smooth"}});'  # smooth scrolling
             except:
                 pass
 
-    browser.execute_script(script)
+    if script:
+        browser.execute_script(script)
 
 
 def click_xpath(browser, xpath):
@@ -579,28 +600,78 @@ def extract_table_xpath(page, inp):
     row_xpath = inp[0]
     column_xpath = inp[1]
     filename = inp[2]  # "extracted_data.txt"
+    first_row_header = inp[3]
 
     result = []
     trs = page.xpath(row_xpath)
-    for j, tr in enumerate(trs):
-        details = page.xpath(row_xpath + "[" + str(j+1) + "]" + column_xpath).extract() #j+1 because xpath indices start with 1 (not with 0)
-        print(j, details)
+    ths = page.xpath(row_xpath + '//th')
+    headers = []
 
-        result.append(details)
 
-    short_filename = filename.split(".txt")[0]
-    df = pd.DataFrame(result)
-    df.to_excel(short_filename + ".xlsx")
+    # Try to find headers within <th> tags
+    for th_tag in ths:
+        headers.append(''.join(th_tag.xpath('.//text()').extract()).replace('\n', '').replace('\t', ''))
 
-    data = result
+    if trs:
+        for j, tr in enumerate(trs):
+            xp = row_xpath + "[" + str(j + 1) + "]" + column_xpath
 
-    print("DATA", data)
-    with open(filename, "w+", encoding="utf-8") as f:
-        pass
-        # for i,row in enumerate(data):
-        # print("B",i,row)
-        # f.write(row+"\n")
-        # print("C")
+            td_tags = page.xpath(xp)
+            row = []
+            for td in td_tags:
+                data = td.xpath('.//text()').getall()
+
+                '''r
+                    Some table cells include \n or unicode symbols,
+                    so that creates unneccesary "empty" columns and thus
+                    the number of columns doesn't meet the real one
+                '''
+
+                data = [''.join(x.strip()).replace('\\', '') for x in data]  # Cleaning the text
+
+                # data = list(filter(None, data))  # Deleting empty strings
+
+                row.append('\n'.join(data).strip())  # Making one string value from list
+
+            # details = page.xpath(xp).extract() #j+1 because xpath indices start with 1 (not with 0)
+
+            # print(j, details)
+
+            # If first row should be headers and headers were not defined before
+            if first_row_header and not headers:
+                headers = row
+            else:
+                result.append(row)
+
+    short_filename = filename.split(".pickle")[0]
+
+    if headers:
+        # print('HEADERS', headers)
+
+        # Could be the situation when len of headers is not the same as len of row
+        try:
+            df = pd.DataFrame(result, columns=headers)
+        except:
+            df = pd.DataFrame(result)
+    else:
+        df = pd.DataFrame(result)
+
+    # Remove empty rows
+    df.dropna(axis=0, how='all', inplace=True)
+    df.to_excel(short_filename + '.xlsx')
+
+    with open(filename, 'wb') as pickle_file:
+        pickle.dump(df, pickle_file)
+
+    # data = result
+
+    # print("DATA", data)
+    # with open(filename, "w+", encoding="utf-8") as f:
+    # pass
+    # for i,row in enumerate(data):
+    # print("B",i,row)
+    # f.write(row+"\n")
+    # print("C")
     # print(data)
 
 
