@@ -607,6 +607,7 @@ def extract_table_xpath(page, inp):
     ths = page.xpath(row_xpath + '//th')
     headers = []
 
+
     # Try to find headers within <th> tags
     for th_tag in ths:
         headers.append(''.join(th_tag.xpath('.//text()').extract()).replace('\n', '').replace('\t', ''))
