@@ -46,7 +46,7 @@ def extract_page_source(varname, filename):
     spider_functions = kv.VarSafe(spider_functions, "spider_functions", "spider_functions")
     kv.save_variables(kv.kept_variables, "scr_vars.kpv")
 
-def scan_web_page(incl_tables, incl_bullets, incl_texts, incl_headlines, incl_links):
+def scan_web_page(incl_tables, incl_bullets, incl_texts, incl_headlines, incl_links, by_xpath=None):
     """
     Launches find_tables function from core.
         :param incl_tables: boolean, search for tables
@@ -54,13 +54,15 @@ def scan_web_page(incl_tables, incl_bullets, incl_texts, incl_headlines, incl_li
         :param incl_texts: boolean, search for text elements
         :param incl_headlines: boolean, search for headlines
         :param incl_links: boolean, search for links
+        :param by_xpath: str, search elements by custom XPath
+
     """
 
     print("LAUNCHER", "Scaning web page")
 
     function = "scan_web_page"
 
-    inp = [incl_tables, incl_bullets, incl_texts, incl_headlines, incl_links]
+    inp = [incl_tables, incl_bullets, incl_texts, incl_headlines, incl_links, by_xpath]
 
     spider_functions = {"function": function, "input": inp, "done": False}
     spider_functions = kv.VarSafe(spider_functions, "spider_functions", "spider_functions")
@@ -112,15 +114,18 @@ def close_browser():
     #time.sleep(3)  # Without delay function is not transferred to docrawl_core
 
 
-def scroll_web_page(scroll_to, scroll_by):
+def scroll_web_page(scroll_to, scroll_by, scroll_max):
     """
     Launches scroll_web_page function from core.
+        :param scroll_to: string, scroll direction (Up/Down)
+        :param scroll_by: int, scroll distance
+        :param scroll_max: bool, scroll to maximum
     """
 
     print("LAUNCHER", "Scroll web page")
 
     function = "scroll_web_page"
-    inp = [scroll_to, scroll_by]
+    inp = [scroll_to, scroll_by, scroll_max]
 
     spider_functions = {"function": function, "input": inp, "done": False}
     spider_functions = kv.VarSafe(spider_functions, "spider_functions", "spider_functions")
@@ -180,7 +185,7 @@ def extract_multiple_xpath(xpaths, filename="extracted_data.xlsx"):
     # docrawl_core.spider_requests={"url":url,"loaded":False}
 
 
-def extract_table_xpath(xpath_row, xpath_col, filename="extracted_data.xlsx"):
+def extract_table_xpath(xpath_row, xpath_col, first_row_header, filename="extracted_data.xlsx"):
     # function = "exec"
     args = xpath_row
     if type(args) == list:
@@ -188,7 +193,7 @@ def extract_table_xpath(xpath_row, xpath_col, filename="extracted_data.xlsx"):
     else:
         command = args
 
-    command = [xpath_row, xpath_col, filename]
+    command = [xpath_row, xpath_col, filename, first_row_header]
     # command=command.replace("'","$")
     # command=command.replace('"','€')
 
