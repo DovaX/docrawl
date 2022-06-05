@@ -14,6 +14,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.firefox.service import Service
 from webdriver_manager.firefox import GeckoDriverManager
+import urllib.request
 import time
 import pynput.keyboard
 import pickle
@@ -116,7 +117,8 @@ def scan_web_page(page, inp, browser):
     incl_texts = inp[2]
     incl_headlines = inp[3]
     incl_links = inp[4]
-    by_xpath = inp[5]
+    incl_images = inp[5]
+    by_xpath = inp[6]
 
     # Folder for serialized dataframes
     PICKLE_FOLDER = 'src/pickle_scraped_data'
@@ -126,8 +128,9 @@ def scan_web_page(page, inp, browser):
     BULLET_TAGS = ['ul', 'ol']
     TEXT_TAGS = ['p', 'strong', 'em']  # 'div']
     HEADLINE_TAGS = ['h1', 'h2']
+    IMAGE_TAGS = ['img']
 
-    # <a> tags, exceluding links in menu, links as images, mailto links and links with scripts
+    # <a> tags, excluding links in menu, links as images, mailto links and links with scripts
     LINK_TAGS = ["""
                     a[@href
                     and not(contains(@id, "Menu"))  
@@ -145,6 +148,7 @@ def scan_web_page(page, inp, browser):
                        'bullet': BULLET_TAGS,
                        'text': TEXT_TAGS,
                        'headline': HEADLINE_TAGS,
+                       'image': IMAGE_TAGS,
                        'link': LINK_TAGS + ['a']}  # + ['a'] is to identify link tags when using custom XPath
 
     try:
@@ -160,6 +164,9 @@ def scan_web_page(page, inp, browser):
     # Page source for parser
     innerHTML = browser.execute_script("return document.body.innerHTML")
     tree = lxml.html.fromstring(innerHTML)
+
+    # Url pattern, used to get main page url from current url
+    url_pattern = re.compile('^(((https|http):\/\/|www\.)*[a-zA-Z0-9\.\/\?\:@\-_=#]{2,100}\.[a-zA-Z]{2,6}\/)')
 
     time_start_f = datetime.datetime.now()
 
@@ -306,6 +313,17 @@ def scan_web_page(page, inp, browser):
                 with open(path + '.pickle', 'wb') as pickle_file:
                     pickle.dump(data, pickle_file)
 
+        elif 'image' in element_name:
+            xpath += '/@src'
+            data = page.xpath(xpath).extract()[0]
+
+            if data:
+                # Handle images with relative path. E.g. images/logo.png
+                if not any([data.startswith(x) for x in ['http', 'www']]):
+                    data = url_pattern.match(browser.current_url).group(1) + data.replace('./', '')
+
+                with open(path + '.pickle', 'wb') as pickle_file:
+                    pickle.dump(data, pickle_file)
         else:
             if 'link' in element_name:
                 xpath += '/@href'
@@ -422,6 +440,10 @@ def scan_web_page(page, inp, browser):
     ##### LINKS SECTION #####
     if incl_links:
         find_elements(LINK_TAGS, 'link')
+
+    ##### IMAGES SECTION #####
+    if incl_images:
+        find_elements(IMAGE_TAGS, 'image')
 
     ##### CUSTOM XPATH SECTION #####
     if by_xpath:
