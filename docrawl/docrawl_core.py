@@ -361,8 +361,10 @@ def scan_web_page(page, inp, browser):
             prefix = ''
 
         for tag in tags:
-            elements_tree.extend(tree.xpath(f'{prefix}{tag}'))
             elements.extend(browser.find_elements(By.XPATH, f'{prefix}{tag}'))
+            if custom_tag:
+                tag = tag.replace('/body/', '/div/')    # Otherwise, elements_tree will be empty
+            elements_tree.extend(tree.xpath(f'{prefix}{tag}'))
 
         if elements:
             for i, element in enumerate(elements):
