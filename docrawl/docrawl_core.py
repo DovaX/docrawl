@@ -15,6 +15,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.firefox.service import Service
 from webdriver_manager.firefox import GeckoDriverManager
 import urllib.request
+import requests
 import time
 import pynput.keyboard
 import pickle
@@ -385,7 +386,6 @@ def scan_web_page(page, inp, browser):
             :param tree: list of elements
             :param i: element's number
         """
-
         xpath = tree[i].getroottree().getpath(tree[i])
         xpath = xpath.split('/')
         xpath[2] = 'body'  # For some reason getpath() generates <div> instead of <body>
@@ -564,6 +564,33 @@ def scroll_web_page(browser, inp):
         browser.execute_script(script)
 
 
+def download_image(page, inp):
+    """
+    Downloads image using XPath
+        :param page: Selenium Selector, page to download image from
+        :param inp: list, inputs from launcher (image xpath, filename)
+    """
+
+    image_xpath = inp[0]
+    filename = inp[1]
+
+    if image_xpath.endswith('/@src'):
+        image_xpath += '/@src'
+
+    image_url = page.xpath(image_xpath).extract()[0]
+
+    # If entered filename contains extension -> drop extension
+    if '.' in filename:
+        filename = filename.split('.')[0]
+
+    image_extension = image_url.split('.')[-1]
+    filename = f'{filename}.{image_extension}'
+
+    r = requests.get(image_url)
+    with open(filename, 'wb') as outfile:
+        outfile.write(r.content)
+
+
 def click_xpath(browser, xpath):
     browser.find_element_by_xpath(xpath).click()
 
@@ -630,7 +657,6 @@ def extract_table_xpath(page, inp):
     trs = page.xpath(row_xpath)
     ths = page.xpath(row_xpath + '//th')
     headers = []
-
 
     # Try to find headers within <th> tags
     for th_tag in ths:
@@ -848,6 +874,9 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                     elif function_str == "scroll_web_page":
                         print("SCROLL WEB PAGE")
                         scroll_web_page(self.browser, inp)
+                    elif function_str == "download_image":
+                        print("DOWNLOAD IMAGE")
+                        download_image(page, inp)
                     else:
                         function(inp)
 

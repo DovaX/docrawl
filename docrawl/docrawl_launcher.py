@@ -133,6 +133,23 @@ def scroll_web_page(scroll_to, scroll_by, scroll_max):
     kv.save_variables(kv.kept_variables, "scr_vars.kpv")
 
 
+def download_image(image_xpath, filename):
+    """
+    Launches download_image function from core.
+        :param image_xpath: string, url of image
+        :param filename: string, output filename
+    """
+
+    print("LAUNCHER", "Download image")
+
+    function = "download_image"
+    inp = [image_xpath, filename]
+
+    spider_functions = {"function": function, "input": inp, "done": False}
+    spider_functions = kv.VarSafe(spider_functions, "spider_functions", "spider_functions")
+    kv.save_variables(kv.kept_variables, "scr_vars.kpv")
+
+
 def extract_xpath(xpath, filename="extracted_data.xlsx", write_in_file_mode="w+"):
     # function = "exec"
     print("LAUNCHER", xpath, filename)
