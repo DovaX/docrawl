@@ -133,16 +133,16 @@ def scroll_web_page(scroll_to, scroll_by, scroll_max):
     kv.save_variables(kv.kept_variables, "scr_vars.kpv")
 
 
-def download_image(image_xpath, filename):
+def download_images(image_xpath, filename):
     """
     Launches download_image function from core.
         :param image_xpath: string, url of image
         :param filename: string, output filename
     """
 
-    print("LAUNCHER", "Download image")
+    print("LAUNCHER", "Download images")
 
-    function = "download_image"
+    function = "download_images"
     inp = [image_xpath, filename]
 
     spider_functions = {"function": function, "input": inp, "done": False}

@@ -564,31 +564,59 @@ def scroll_web_page(browser, inp):
         browser.execute_script(script)
 
 
-def download_image(page, inp):
+def download_images(browser, inp):
     """
     Downloads image using XPath
-        :param page: Selenium Selector, page to download image from
+        :param browser: driver instance
         :param inp: list, inputs from launcher (image xpath, filename)
     """
 
     image_xpath = inp[0]
     filename = inp[1]
-
-    if image_xpath.endswith('/@src'):
-        image_xpath += '/@src'
-
-    image_url = page.xpath(image_xpath).extract()[0]
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; WOW64; rv:50.0) Gecko/20100101 Firefox/50.0'}
 
     # If entered filename contains extension -> drop extension
     if '.' in filename:
         filename = filename.split('.')[0]
 
-    image_extension = image_url.split('.')[-1]
-    filename = f'{filename}.{image_extension}'
+    images = browser.find_elements(By.XPATH, image_xpath)
 
-    r = requests.get(image_url)
-    with open(filename, 'wb') as outfile:
-        outfile.write(r.content)
+    if len(images) == 0:
+        pass
+    elif len(images) == 1:
+        image_url = images[0].get_attribute('data-src')
+
+        if not image_url:
+            image_url = images[0].get_attribute('src')
+
+        image_extension = image_url.split('.')[-1].split('?')[0]  # Drop ?xxx after image extension
+
+        r = requests.get(image_url)
+        with open(f'{filename}.{image_extension}', 'wb') as outfile:
+            outfile.write(r.content)
+    else:
+        # Use provided filename as directory name. Images themselves will be filename_base_0, filename_base_1, filename_base_2 etc.
+        images_directory = filename
+        if not os.path.exists(images_directory):
+            os.mkdir(images_directory)
+
+        filename_base = filename
+
+        for i, image in enumerate(images):
+            try:
+                # Sometimes the image url is stored within data-src tag -> TODO: add new argument to handler with tag?
+                image_url = image.get_attribute('data-src')
+                if not image_url:
+                    image_url = image.get_attribute('src')
+
+                image_extension = image_url.split('.')[-1].split('?')[0]    # Drop ?xxx after image extension
+                filename = f'{filename_base}_{i}.{image_extension}'
+
+                r = requests.get(image_url, headers=headers)
+                with open(f'{images_directory}/{filename}', 'wb') as outfile:
+                    outfile.write(r.content)
+            except:
+                pass
 
 
 def click_xpath(browser, xpath):
@@ -874,9 +902,9 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                     elif function_str == "scroll_web_page":
                         print("SCROLL WEB PAGE")
                         scroll_web_page(self.browser, inp)
-                    elif function_str == "download_image":
+                    elif function_str == "download_images":
                         print("DOWNLOAD IMAGE")
-                        download_image(page, inp)
+                        download_images(self.browser, inp)
                     else:
                         function(inp)
 
