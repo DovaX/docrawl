@@ -46,7 +46,7 @@ def extract_page_source(varname, filename):
     spider_functions = kv.VarSafe(spider_functions, "spider_functions", "spider_functions")
     kv.save_variables(kv.kept_variables, "scr_vars.kpv")
 
-def scan_web_page(incl_tables, incl_bullets, incl_texts, incl_headlines, incl_links, by_xpath=None):
+def scan_web_page(incl_tables, incl_bullets, incl_texts, incl_headlines, incl_links, incl_images, by_xpath=None):
     """
     Launches find_tables function from core.
         :param incl_tables: boolean, search for tables
@@ -54,6 +54,7 @@ def scan_web_page(incl_tables, incl_bullets, incl_texts, incl_headlines, incl_li
         :param incl_texts: boolean, search for text elements
         :param incl_headlines: boolean, search for headlines
         :param incl_links: boolean, search for links
+        :param incl_images: boolean, search for images
         :param by_xpath: str, search elements by custom XPath
 
     """
@@ -62,7 +63,7 @@ def scan_web_page(incl_tables, incl_bullets, incl_texts, incl_headlines, incl_li
 
     function = "scan_web_page"
 
-    inp = [incl_tables, incl_bullets, incl_texts, incl_headlines, incl_links, by_xpath]
+    inp = [incl_tables, incl_bullets, incl_texts, incl_headlines, incl_links, incl_images, by_xpath]
 
     spider_functions = {"function": function, "input": inp, "done": False}
     spider_functions = kv.VarSafe(spider_functions, "spider_functions", "spider_functions")
@@ -126,6 +127,23 @@ def scroll_web_page(scroll_to, scroll_by, scroll_max):
 
     function = "scroll_web_page"
     inp = [scroll_to, scroll_by, scroll_max]
+
+    spider_functions = {"function": function, "input": inp, "done": False}
+    spider_functions = kv.VarSafe(spider_functions, "spider_functions", "spider_functions")
+    kv.save_variables(kv.kept_variables, "scr_vars.kpv")
+
+
+def download_images(image_xpath, filename):
+    """
+    Launches download_image function from core.
+        :param image_xpath: string, url of image
+        :param filename: string, output filename
+    """
+
+    print("LAUNCHER", "Download images")
+
+    function = "download_images"
+    inp = [image_xpath, filename]
 
     spider_functions = {"function": function, "input": inp, "done": False}
     spider_functions = kv.VarSafe(spider_functions, "spider_functions", "spider_functions")

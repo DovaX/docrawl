@@ -14,6 +14,8 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.firefox.service import Service
 from webdriver_manager.firefox import GeckoDriverManager
+import urllib.request
+import requests
 import time
 import pynput.keyboard
 import pickle
@@ -116,7 +118,8 @@ def scan_web_page(page, inp, browser):
     incl_texts = inp[2]
     incl_headlines = inp[3]
     incl_links = inp[4]
-    by_xpath = inp[5]
+    incl_images = inp[5]
+    by_xpath = inp[6]
 
     # Folder for serialized dataframes
     PICKLE_FOLDER = 'src/pickle_scraped_data'
@@ -126,8 +129,9 @@ def scan_web_page(page, inp, browser):
     BULLET_TAGS = ['ul', 'ol']
     TEXT_TAGS = ['p', 'strong', 'em']  # 'div']
     HEADLINE_TAGS = ['h1', 'h2']
+    IMAGE_TAGS = ['img']
 
-    # <a> tags, exceluding links in menu, links as images, mailto links and links with scripts
+    # <a> tags, excluding links in menu, links as images, mailto links and links with scripts
     LINK_TAGS = ["""
                     a[@href
                     and not(contains(@id, "Menu"))  
@@ -145,6 +149,7 @@ def scan_web_page(page, inp, browser):
                        'bullet': BULLET_TAGS,
                        'text': TEXT_TAGS,
                        'headline': HEADLINE_TAGS,
+                       'image': IMAGE_TAGS,
                        'link': LINK_TAGS + ['a']}  # + ['a'] is to identify link tags when using custom XPath
 
     try:
@@ -160,6 +165,9 @@ def scan_web_page(page, inp, browser):
     # Page source for parser
     innerHTML = browser.execute_script("return document.body.innerHTML")
     tree = lxml.html.fromstring(innerHTML)
+
+    # Url pattern, used to get main page url from current url
+    url_pattern = re.compile('^(((https|http):\/\/|www\.)*[a-zA-Z0-9\.\/\?\:@\-_=#]{2,100}\.[a-zA-Z]{2,6}\/)')
 
     time_start_f = datetime.datetime.now()
 
@@ -306,6 +314,17 @@ def scan_web_page(page, inp, browser):
                 with open(path + '.pickle', 'wb') as pickle_file:
                     pickle.dump(data, pickle_file)
 
+        elif 'image' in element_name:
+            xpath += '/@src'
+            data = page.xpath(xpath).extract()[0]
+
+            if data:
+                # Handle images with relative path. E.g. images/logo.png
+                if not any([data.startswith(x) for x in ['http', 'www']]):
+                    data = url_pattern.match(browser.current_url).group(1) + data.replace('./', '')
+
+                with open(path + '.pickle', 'wb') as pickle_file:
+                    pickle.dump(data, pickle_file)
         else:
             if 'link' in element_name:
                 xpath += '/@href'
@@ -343,8 +362,10 @@ def scan_web_page(page, inp, browser):
             prefix = ''
 
         for tag in tags:
-            elements_tree.extend(tree.xpath(f'{prefix}{tag}'))
             elements.extend(browser.find_elements(By.XPATH, f'{prefix}{tag}'))
+            if custom_tag:
+                tag = tag.replace('/body/', '/div/')    # Otherwise, elements_tree will be empty
+            elements_tree.extend(tree.xpath(f'{prefix}{tag}'))
 
         if elements:
             for i, element in enumerate(elements):
@@ -365,7 +386,6 @@ def scan_web_page(page, inp, browser):
             :param tree: list of elements
             :param i: element's number
         """
-
         xpath = tree[i].getroottree().getpath(tree[i])
         xpath = xpath.split('/')
         xpath[2] = 'body'  # For some reason getpath() generates <div> instead of <body>
@@ -422,6 +442,10 @@ def scan_web_page(page, inp, browser):
     ##### LINKS SECTION #####
     if incl_links:
         find_elements(LINK_TAGS, 'link')
+
+    ##### IMAGES SECTION #####
+    if incl_images:
+        find_elements(IMAGE_TAGS, 'image')
 
     ##### CUSTOM XPATH SECTION #####
     if by_xpath:
@@ -508,28 +532,28 @@ def scroll_web_page(browser, inp):
     """
     Scrolls page up / down by n-pixels.
         :param browser: driver instance
-        :param inp: list, inputs from launcher (scroll_to, scroll_by)
+        :param inp: list, inputs from launcher (scroll_to, scroll_by, scroll_max)
     """
 
     scroll_to = inp[0]
     scroll_by = inp[1]
-    #scroll_max = inp[2]
+    scroll_max = inp[2]
 
     script = ''
 
     if scroll_to == 'Down':
-        #if scroll_max:
-            #script = 'window.scrollTo(0, document.body.scrollHeight);var lenOfPage=document.body.scrollHeight;return lenOfPage;'
-        #else:
+        if scroll_max:
+            script = 'window.scrollTo(0, document.body.scrollHeight);var lenOfPage=document.body.scrollHeight;return lenOfPage;'
+        else:
             try:
                 # script = f'window.scrollBy(0, {scroll_by});'       # instant scrolling
                 script = f'window.scrollBy({{top: {scroll_by}, left: 0, behavior: "smooth"}});'  # smooth scrolling
             except:
                 pass
     elif scroll_to == 'Up':
-        #if scroll_max:
-            #script = 'window.scrollTo(0, 0)'
-        #else:
+        if scroll_max:
+            script = 'window.scrollTo(0, 0)'
+        else:
             try:
                 # script = f'window.scrollBy(0, -{scroll_by});'      # instant scrolling
                 script = f'window.scrollBy({{top: -{scroll_by}, left: 0, behavior: "smooth"}});'  # smooth scrolling
@@ -538,6 +562,61 @@ def scroll_web_page(browser, inp):
 
     if script:
         browser.execute_script(script)
+
+
+def download_images(browser, inp):
+    """
+    Downloads image using XPath
+        :param browser: driver instance
+        :param inp: list, inputs from launcher (image xpath, filename)
+    """
+
+    image_xpath = inp[0]
+    filename = inp[1]
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; WOW64; rv:50.0) Gecko/20100101 Firefox/50.0'}
+
+    # If entered filename contains extension -> drop extension
+    if '.' in filename:
+        filename = filename.split('.')[0]
+
+    images = browser.find_elements(By.XPATH, image_xpath)
+
+    if len(images) == 0:
+        pass
+    elif len(images) == 1:
+        image_url = images[0].get_attribute('data-src')
+
+        if not image_url:
+            image_url = images[0].get_attribute('src')
+
+        image_extension = image_url.split('.')[-1].split('?')[0]  # Drop ?xxx after image extension
+
+        r = requests.get(image_url)
+        with open(f'{filename}.{image_extension}', 'wb') as outfile:
+            outfile.write(r.content)
+    else:
+        # Use provided filename as directory name. Images themselves will be filename_base_0, filename_base_1, filename_base_2 etc.
+        images_directory = filename
+        if not os.path.exists(images_directory):
+            os.mkdir(images_directory)
+
+        filename_base = filename
+
+        for i, image in enumerate(images):
+            try:
+                # Sometimes the image url is stored within data-src tag -> TODO: add new argument to handler with tag?
+                image_url = image.get_attribute('data-src')
+                if not image_url:
+                    image_url = image.get_attribute('src')
+
+                image_extension = image_url.split('.')[-1].split('?')[0]    # Drop ?xxx after image extension
+                filename = f'{filename_base}_{i}.{image_extension}'
+
+                r = requests.get(image_url, headers=headers)
+                with open(f'{images_directory}/{filename}', 'wb') as outfile:
+                    outfile.write(r.content)
+            except:
+                pass
 
 
 def click_xpath(browser, xpath):
@@ -606,7 +685,6 @@ def extract_table_xpath(page, inp):
     trs = page.xpath(row_xpath)
     ths = page.xpath(row_xpath + '//th')
     headers = []
-
 
     # Try to find headers within <th> tags
     for th_tag in ths:
@@ -824,6 +902,9 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                     elif function_str == "scroll_web_page":
                         print("SCROLL WEB PAGE")
                         scroll_web_page(self.browser, inp)
+                    elif function_str == "download_images":
+                        print("DOWNLOAD IMAGE")
+                        download_images(self.browser, inp)
                     else:
                         function(inp)
 
