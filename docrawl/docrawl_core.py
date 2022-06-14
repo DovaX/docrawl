@@ -9,11 +9,12 @@ import scrapy
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
-from selenium.webdriver import FirefoxOptions
+from selenium.webdriver import FirefoxOptions, ChromeOptions
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.firefox.service import Service
 from webdriver_manager.firefox import GeckoDriverManager
+from webdriver_manager.chrome import ChromeDriverManager
 import urllib.request
 import requests
 import time
@@ -22,6 +23,7 @@ import pickle
 import os
 import shutil
 import re
+import psutil
 
 import lxml.html
 
@@ -80,15 +82,35 @@ def take_screenshot(browser, inp):
     except Exception as e:
         print('Error while taking page screenshot!', e)
     '''
-    try:
-        root_element = browser.find_element(By.XPATH, '/html')
-        string = browser.get_full_page_screenshot_as_base64()
-        browser.execute_script("return arguments[0].scrollIntoView(true);", root_element)
+    if type(browser) == webdriver.Firefox:
 
+        try:
+            root_element = browser.find_element(By.XPATH, '/html')
+            string = browser.get_full_page_screenshot_as_base64()
+            browser.execute_script("return arguments[0].scrollIntoView(true);", root_element)
+
+            with open(filename, "w+") as fh:
+                fh.write(string)
+        except Exception as e:
+            print('Error while taking page screenshot!', e)
+
+    elif type(browser) == webdriver.Chrome:
+        # Get params needed for fullpage screenshot
+        page_rect = browser.execute_cdp_cmd('Page.getLayoutMetrics', {})
+
+        # Set the width and height of the viewport to screenshot, same as the site's content size
+        screenshot_config = {'captureBeyondViewport': True,
+                             'fromSurface': True,
+                             'clip': {'width': page_rect['cssContentSize']['width'],
+                                      'height': page_rect['cssContentSize']['height'],
+                                      'x': 0,
+                                      'y': 0,
+                                      'scale': 1},
+                             }
+        # Dictionary with 1 key: data
+        string = browser.execute_cdp_cmd('Page.captureScreenshot', screenshot_config)['data']   # Taking screenshot
         with open(filename, "w+") as fh:
             fh.write(string)
-    except Exception as e:
-        print('Error while taking page screenshot!', e)
 
 
 def extract_page_source(page, inp):
@@ -364,7 +386,7 @@ def scan_web_page(page, inp, browser):
         for tag in tags:
             elements.extend(browser.find_elements(By.XPATH, f'{prefix}{tag}'))
             if custom_tag:
-                tag = tag.replace('/body/', '/div/')    # Otherwise, elements_tree will be empty
+                tag = tag.replace('/body/', '/div/')  # Otherwise, elements_tree will be empty
             elements_tree.extend(tree.xpath(f'{prefix}{tag}'))
 
         if elements:
@@ -377,6 +399,7 @@ def scan_web_page(page, inp, browser):
                 try:
                     xpath = find_element_xpath(elements_tree, i)
                     serialize_and_append_data(f'{element_name}_{i}', element, xpath)
+
                 except:
                     pass
 
@@ -566,7 +589,7 @@ def scroll_web_page(browser, inp):
 
 def download_images(browser, inp):
     """
-    Downloads image using XPath
+    Downloads images using XPath
         :param browser: driver instance
         :param inp: list, inputs from launcher (image xpath, filename)
     """
@@ -591,7 +614,7 @@ def download_images(browser, inp):
 
         image_extension = image_url.split('.')[-1].split('?')[0]  # Drop ?xxx after image extension
 
-        r = requests.get(image_url)
+        r = requests.get(image_url, headers=headers)
         with open(f'{filename}.{image_extension}', 'wb') as outfile:
             outfile.write(r.content)
     else:
@@ -609,7 +632,7 @@ def download_images(browser, inp):
                 if not image_url:
                     image_url = image.get_attribute('src')
 
-                image_extension = image_url.split('.')[-1].split('?')[0]    # Drop ?xxx after image extension
+                image_extension = image_url.split('.')[-1].split('?')[0]  # Drop ?xxx after image extension
                 filename = f'{filename_base}_{i}.{image_extension}'
 
                 r = requests.get(image_url, headers=headers)
@@ -766,37 +789,53 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
         #   'CONCURRENT_REQUESTS' : '20',
     }
 
-    # capabilities = DesiredCapabilities.FIREFOX
-    # capabilities["marionette"] = True
-    # browser=webdriver.Firefox(capabilities=capabilities)
-    # browser.set_window_size(1820, 980)
-
     def __init__(self):
         # can be replaced for debugging with browser = webdriver.FireFox()
         # self.browser = webdriver.PhantomJS(executable_path=PHANTOMJS_PATH, service_args=['--ignore-ssl-errors=true'])
-        capabilities = DesiredCapabilities.FIREFOX
-        capabilities["marionette"] = True
-
-        options = FirefoxOptions()
-        window_size_x = 1820
 
         try:
-            bool_scrape_in_browser = load_variable_safe('scr_vars.kpv', 'bool_scrape_in_browser')['in_browser']
+            self.driver_type = load_variable_safe('scr_vars.kpv', 'browser')['driver']
+            bool_scrape_in_browser = load_variable_safe('scr_vars.kpv', 'browser')['in_browser']
         except Exception as e:
-            print('Error while loading bool_scrape_in_browser!', e)
+            self.driver_type = 'Firefox'
             bool_scrape_in_browser = True
+            print('Error while loading browser information: ', e)
 
-        if not bool_scrape_in_browser:
-            options.add_argument("--headless")
+        if self.driver_type == 'Firefox':
+            capabilities = DesiredCapabilities.FIREFOX
+            options = FirefoxOptions()
+            capabilities["marionette"] = True
 
-            # For headless mode different width of window is needed
-            window_size_x = 1450
+            if not bool_scrape_in_browser:
+                options.add_argument("--headless")
 
-        try:
-            self.browser = webdriver.Firefox(options=options, capabilities=capabilities,
-                                             service=Service(GeckoDriverManager().install()))
-        except:
-            self.browser = webdriver.Firefox(options=options, capabilities=capabilities)
+                # For headless mode different width of window is needed
+                window_size_x = 1450
+
+            try:
+                self.browser = webdriver.Firefox(options=options, capabilities=capabilities,
+                                                 service=Service(GeckoDriverManager().install()))
+            except:
+                self.browser = webdriver.Firefox(options=options, capabilities=capabilities)
+
+        elif self.driver_type == 'Chrome':
+
+            capabilities = DesiredCapabilities.CHROME
+            options = ChromeOptions()
+
+            if not bool_scrape_in_browser:
+                options.add_argument("--headless")
+
+                # For headless mode different width of window is needed
+                window_size_x = 1450
+
+            try:
+                self.browser = webdriver.Chrome(options=options, desired_capabilities=capabilities,
+                                                executable_path=ChromeDriverManager().install())
+            except:
+                pass
+
+        window_size_x = 1820
 
         self.browser.set_window_size(window_size_x, 980)
         self.start_requests()
@@ -814,12 +853,20 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
         global spider_functions
         try:
             global browser_pid
-            browser_pid = self.browser.capabilities['moz:processID']
+
+            if self.driver_type == 'Firefox':
+                browser_pid = self.browser.capabilities['moz:processID']
+            elif self.driver_type == 'Chrome':
+                self.browser.service.process
+                browser_pid = psutil.Process(self.browser.service.process.pid)
+                browser_pid = browser_pid.pid
+
             browser_pid = VarSafe(browser_pid, "browser_pid", "browser_pid")
             save_variables(kept_variables, "scr_vars.kpv")
             print(browser_pid)
         except Exception as e:
             print(e)
+
         self.browser.get(response.url)
         global docrawl_core_done
         docrawl_core_done = False

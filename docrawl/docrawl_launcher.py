@@ -13,6 +13,7 @@ def load_website(url):
 
     # docrawl_core.spider_requests={"url":url,"loaded":False}
 
+
 def take_screenshot(filename):
     """
     Launches take_screenshot from core.
@@ -28,6 +29,7 @@ def take_screenshot(filename):
     spider_functions = {"function": function, "input": inp, "done": False}
     spider_functions = kv.VarSafe(spider_functions, "spider_functions", "spider_functions")
     kv.save_variables(kv.kept_variables, "scr_vars.kpv")
+
 
 def extract_page_source(varname, filename):
     """
@@ -45,6 +47,7 @@ def extract_page_source(varname, filename):
     spider_functions = {"function": function, "input": inp, "done": False}
     spider_functions = kv.VarSafe(spider_functions, "spider_functions", "spider_functions")
     kv.save_variables(kv.kept_variables, "scr_vars.kpv")
+
 
 def scan_web_page(incl_tables, incl_bullets, incl_texts, incl_headlines, incl_links, incl_images, by_xpath=None):
     """
@@ -69,6 +72,7 @@ def scan_web_page(incl_tables, incl_bullets, incl_texts, incl_headlines, incl_li
     spider_functions = kv.VarSafe(spider_functions, "spider_functions", "spider_functions")
     kv.save_variables(kv.kept_variables, "scr_vars.kpv")
 
+
 def wait_until_element_is_located(xpath):
     """
     Launches wait_until_element_is_located function from core.
@@ -84,6 +88,7 @@ def wait_until_element_is_located(xpath):
     spider_functions = {"function": function, "input": inp, "done": False}
     spider_functions = kv.VarSafe(spider_functions, "spider_functions", "spider_functions")
     kv.save_variables(kv.kept_variables, "scr_vars.kpv")
+
 
 def get_current_url(filename):
     """
@@ -112,7 +117,7 @@ def close_browser():
     spider_functions = {"function": function, "input": None, "done": False}
     spider_functions = kv.VarSafe(spider_functions, "spider_functions", "spider_functions")
     kv.save_variables(kv.kept_variables, "scr_vars.kpv")
-    #time.sleep(3)  # Without delay function is not transferred to docrawl_core
+    # time.sleep(3)  # Without delay function is not transferred to docrawl_core
 
 
 def scroll_web_page(scroll_to, scroll_by, scroll_max):
@@ -263,10 +268,11 @@ def click_name(args):
     # docrawl_core.spider_requests={"url":url,"loaded":False}
 
 
-def run_spider(number, in_browser=True):
+def run_spider(number, in_browser=True, driver='Firefox'):
     """
     Starts crawler.
         :param in_browser: bool, show browser GUI (-headless option).
+        :param driver: string, driver instance to use (Firefox/Geckodriver, Chrome)
 
         Note: param in_browser is reverse to -headless option, meaning:
             - in_browser=True -> no -headless in driver options
@@ -275,9 +281,9 @@ def run_spider(number, in_browser=True):
 
     setup()
     crawler = CrawlerRunner()
+    browser = {'in_browser': in_browser, 'driver': driver}
+    browser = kv.VarSafe(browser, "browser", "browser")
 
-    bool_scrape_in_browser = {'in_browser': in_browser}
-    bool_scrape_in_browser = kv.VarSafe(bool_scrape_in_browser, "bool_scrape_in_browser", "bool_scrape_in_browser")
     kv.save_variables(kv.kept_variables, 'scr_vars.kpv')
 
     time.sleep(1)
