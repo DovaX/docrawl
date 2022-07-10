@@ -65,7 +65,7 @@ def print_special(inp):
     save_variables({"inp": inp}, filename="input.kpv")
 
 
-def take_screenshot(browser, inp):
+def take_screenshot(browser, page, inp):
     """
     Takes screenshot of current page and saves it.
         :param browser: Selenium driver, browser instance
@@ -108,26 +108,25 @@ def take_screenshot(browser, inp):
                                       'scale': 1},
                              }
         # Dictionary with 1 key: data
-        string = browser.execute_cdp_cmd('Page.captureScreenshot', screenshot_config)['data']   # Taking screenshot
+        string = browser.execute_cdp_cmd('Page.captureScreenshot', screenshot_config)['data']  # Taking screenshot
         with open(filename, "w+") as fh:
             fh.write(string)
 
 
-def extract_page_source(page, inp):
+def extract_page_source(browser, page, inp):
     """
     Extracts the source of currently scraped page.
         :param page: Selenium Selector, page to export source from
         :param inp: list, inputs from launcher (incl_tables, incl_bullets, output_dir)
     """
 
-    varname = inp[0]
-    filename = inp[1]
+    filename = inp[0]
 
     with open(filename, 'w+', encoding="utf-8") as f:
-        f.write(page.page_source)
+        f.write(browser.page_source)
 
 
-def scan_web_page(page, inp, browser):
+def scan_web_page(browser, page, inp):
     """
     Finds different elements (tables, bullet lists) on page.
         :param page: Selenium Selector, page to search elements in
@@ -499,7 +498,7 @@ def scan_web_page(page, inp, browser):
     print('[TIME] WHOLE FUNCTION ------>', timedelta_format(datetime.datetime.now(), time_start_f))
 
 
-def wait_until_element_is_located(browser, inp):
+def wait_until_element_is_located(browser, page, inp):
     """
     Waits until certain element is located on page and then clicks on it.
         :param browser: Selenium driver, browser instance
@@ -516,14 +515,16 @@ def wait_until_element_is_located(browser, inp):
         print('Error while locating element', e)
 
 
-def get_current_url(url, inp):
+def get_current_url(browser, page, inp):
     """
     Returns the URL of current opened website
-        :param page: string, URL of opened page from current driver instance
+        :param page: :param browser: driver instance
         :param inp: list, inputs from launcher (filename)
     """
 
     filename = inp[0]
+    url = str(browser.current_url)
+
     try:
         with open(filename, 'w+', encoding="utf-8") as f:
             f.write(url)
@@ -531,7 +532,7 @@ def get_current_url(url, inp):
         print('Error while getting current URL!')
 
 
-def close_browser(browser):
+def close_browser(browser, page, inp):
     """
     Closes browser (removes driver instance).
         :param browser: driver instance
@@ -551,7 +552,7 @@ def close_browser(browser):
         print('Error while closing the browser!')
 
 
-def scroll_web_page(browser, inp):
+def scroll_web_page(browser, page, inp):
     """
     Scrolls page up / down by n-pixels.
         :param browser: driver instance
@@ -587,7 +588,7 @@ def scroll_web_page(browser, inp):
         browser.execute_script(script)
 
 
-def download_images(browser, inp):
+def download_images(browser, page, inp):
     """
     Downloads images using XPath
         :param browser: driver instance
@@ -642,11 +643,12 @@ def download_images(browser, inp):
                 pass
 
 
-def click_xpath(browser, xpath):
+def click_xpath(browser, page, inp):
+    xpath = inp[0]
     browser.find_element_by_xpath(xpath).click()
 
 
-def extract_xpath(page, inp):
+def extract_xpath(browser, page, inp):
     """
     write_in_file_mode ... w+, a+
     """
@@ -662,7 +664,6 @@ def extract_xpath(page, inp):
     if not data:
         data = ['EmptyElement']
 
-    # print("DATA",data)
     with open(filename, write_in_file_mode, encoding="utf-8") as f:
         if isinstance(data, list):
             for i, row in enumerate(data):
@@ -677,7 +678,7 @@ def extract_xpath(page, inp):
     # print(data)
 
 
-def extract_multiple_xpaths(page, inp):
+def extract_multiple_xpaths(browser, page, inp):
     print("PAGE", page, "INP", inp)
     result = []
     xpaths = inp[0]
@@ -698,7 +699,7 @@ def extract_multiple_xpaths(page, inp):
         pass
 
 
-def extract_table_xpath(page, inp):
+def extract_table_xpath(browser, page, inp):
     row_xpath = inp[0]
     column_xpath = inp[1]
     filename = inp[2]  # "extracted_data.txt"
@@ -911,47 +912,12 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                     function = eval(function_str)
                     # print("BBB",function,function_str)
 
-                    print("INPUT", spider_functions['input'])
-
-                    inp = spider_functions['input']  # .replace("$","'").replace('€','"')
+                    inp = spider_functions['input']
                     print("INP", inp)
 
-                    if function_str == "click_xpath":
-                        print("CLICK XPATH")
-                        click_xpath(self.browser, inp)
-                    elif function_str == "extract_xpath":
-                        print("EXTRACT XPATH")
-                        extract_xpath(page, inp)
-                    elif function_str == "extract_multiple_xpaths":
-                        print("EXTRACT MULTIPLE XPATH")
-                        extract_multiple_xpaths(page, inp)
-                    elif function_str == "extract_table_xpath":
-                        print("EXTRACT XPATH")
-                        extract_table_xpath(page, inp)
-                    elif function_str == "get_current_url":
-                        print("GET CURRENT URL")
-                        get_current_url(str(self.browser.current_url), inp)
-                    elif function_str == "scan_web_page":
-                        print("SCAN WEB PAGE")
-                        scan_web_page(page, inp, self.browser)
-                    elif function_str == "close_browser":
-                        print("CLOSE BROWSER")
-                        close_browser(self.browser)
-                    elif function_str == "extract_page_source":
-                        print("EXTRACT PAGE SOURCE")
-                        extract_page_source(self.browser, inp)
-                    elif function_str == "wait_until_element_is_located":
-                        print("WAIT UNTIL ELEMENT IS LOCATED")
-                        wait_until_element_is_located(self.browser, inp)
-                    elif function_str == "take_screenshot":
-                        print("TAKE PAGE SCREENSHOT")
-                        take_screenshot(self.browser, inp)
-                    elif function_str == "scroll_web_page":
-                        print("SCROLL WEB PAGE")
-                        scroll_web_page(self.browser, inp)
-                    elif function_str == "download_images":
-                        print("DOWNLOAD IMAGE")
-                        download_images(self.browser, inp)
+                    if function_str in FUNCTIONS.keys():
+                        print(function_str.replace('_', ' ').upper())
+                        FUNCTIONS[function_str](browser=self.browser, page=page, inp=inp)
                     else:
                         function(inp)
 
@@ -970,3 +936,18 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
             except KeyboardInterrupt:
                 # print("BLABLA")
                 break
+
+
+FUNCTIONS = {"click_xpath": click_xpath,
+             "extract_xpath": extract_xpath,
+             "extract_multiple_xpaths": extract_multiple_xpaths,
+             "extract_table_xpath": extract_table_xpath,
+             "get_current_url": get_current_url,
+             "scan_web_page": scan_web_page,
+             "close_browser": close_browser,
+             "extract_page_source": extract_page_source,
+             "wait_until_element_is_located": wait_until_element_is_located,
+             "take_screenshot": take_screenshot,
+             "scroll_web_page": scroll_web_page,
+             "download_images": download_images,
+             }
