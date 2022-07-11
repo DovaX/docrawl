@@ -903,18 +903,12 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                     save_variables(kept_variables, "scr_vars.kpv")
 
                 if spider_functions['done'] == False:
-
-                    # print("AAA",spider_functions)
                     # try:
-
+                        
                     function_str = spider_functions['function']
                     function = eval(function_str)
-                    # print("BBB",function,function_str)
-
-                    print("INPUT", spider_functions['input'])
 
                     inp = spider_functions['input']  # .replace("$","'").replace('€','"')
-                    print("INP", inp)
 
                     if function_str == "click_xpath":
                         print("CLICK XPATH")
@@ -957,16 +951,11 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
 
                     # except Exception as e:
                     #    print("Exception occurred:",e)
-                    # print("A")
                     spider_functions['done'] = True
-                    # print("B")
                     spider_functions = VarSafe(spider_functions, "spider_functions", "spider_functions")
-                    # print("C")
                     save_variables(kept_variables, "scr_vars.kpv")
-                    # print("D")
                 page = Selector(text=self.browser.page_source)
                 # save_variables(kept_variables,"scr_vars.kpv")
-                # print("ABCDEFGHIJ",docrawl_core_done)
             except KeyboardInterrupt:
                 # print("BLABLA")
                 break
