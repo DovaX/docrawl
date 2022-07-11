@@ -31,10 +31,9 @@ def take_screenshot(filename):
     kv.save_variables(kv.kept_variables, "scr_vars.kpv")
 
 
-def extract_page_source(varname, filename):
+def extract_page_source(filename):
     """
     Launches extract_page_source from core.
-        :param varname: string, name of variable to be created inside platform
         :param filename: string, name of file that will be used for storing page source
     """
 
@@ -42,7 +41,7 @@ def extract_page_source(varname, filename):
 
     function = "extract_page_source"
 
-    inp = [varname, filename]
+    inp = [filename]
 
     spider_functions = {"function": function, "input": inp, "done": False}
     spider_functions = kv.VarSafe(spider_functions, "spider_functions", "spider_functions")
