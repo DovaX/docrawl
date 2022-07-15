@@ -891,8 +891,7 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                 time.sleep(1)
                 print("Docrawl core loop")
                 print(spider_functions)
-                # print(docrawl_core_done)
-                # print(spider_requests['loaded'])
+
                 if not spider_requests['loaded']:
                     # print(spider_requests['url'])
                     self.browser.get(spider_requests['url'])
@@ -904,49 +903,12 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                     save_variables(kept_variables, "scr_vars.kpv")
 
                 if spider_functions['done'] == False:
-                    # try:
-                        
+
                     function_str = spider_functions['function']
                     function = eval(function_str)
 
-                    inp = spider_functions['input']  # .replace("$","'").replace('€','"')
-
-                    if function_str == "click_xpath":
-                        print("CLICK XPATH")
-                        click_xpath(self.browser, inp)
-                    elif function_str == "extract_xpath":
-                        print("EXTRACT XPATH")
-                        extract_xpath(page, inp)
-                    elif function_str == "extract_multiple_xpaths":
-                        print("EXTRACT MULTIPLE XPATH")
-                        extract_multiple_xpaths(page, inp)
-                    elif function_str == "extract_table_xpath":
-                        print("EXTRACT XPATH")
-                        extract_table_xpath(page, inp)
-                    elif function_str == "get_current_url":
-                        print("GET CURRENT URL")
-                        get_current_url(str(self.browser.current_url), inp)
-                    elif function_str == "scan_web_page":
-                        print("SCAN WEB PAGE")
-                        scan_web_page(page, inp, self.browser)
-                    elif function_str == "close_browser":
-                        print("CLOSE BROWSER")
-                        close_browser(self.browser)
-                    elif function_str == "extract_page_source":
-                        print("EXTRACT PAGE SOURCE")
-                        extract_page_source(self.browser, inp)
-                    elif function_str == "wait_until_element_is_located":
-                        print("WAIT UNTIL ELEMENT IS LOCATED")
-                        wait_until_element_is_located(self.browser, inp)
-                    elif function_str == "take_screenshot":
-                        print("TAKE PAGE SCREENSHOT")
-                        take_screenshot(self.browser, inp)
-                    elif function_str == "scroll_web_page":
-                        print("SCROLL WEB PAGE")
-                        scroll_web_page(self.browser, inp)
-                    elif function_str == "download_images":
-                        print("DOWNLOAD IMAGE")
-                        download_images(self.browser, inp)
+                    inp = spider_functions['input']
+                    print('INP FROM DOCRAWL CORE', inp)
 
                     if function_str in FUNCTIONS.keys():
                         print(function_str.replace('_', ' ').upper())
@@ -954,15 +916,12 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                     else:
                         function(inp)
 
-                    # except Exception as e:
-                    #    print("Exception occurred:",e)
                     spider_functions['done'] = True
                     spider_functions = VarSafe(spider_functions, "spider_functions", "spider_functions")
                     save_variables(kept_variables, "scr_vars.kpv")
                 page = Selector(text=self.browser.page_source)
                 # save_variables(kept_variables,"scr_vars.kpv")
             except KeyboardInterrupt:
-                # print("BLABLA")
                 break
 
 
@@ -979,4 +938,3 @@ FUNCTIONS = {"click_xpath": click_xpath,
              "scroll_web_page": scroll_web_page,
              "download_images": download_images,
              }
-
