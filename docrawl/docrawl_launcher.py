@@ -6,6 +6,9 @@ import time
 
 
 def load_website(url):
+    if "http" not in url:
+        url = "http://" + url
+
     spider_requests = {"url": url, "loaded": False}
     spider_requests = kv.VarSafe(spider_requests, "spider_requests", "spider_requests")
     print("SPIDER_REQUESTS", spider_requests)
