@@ -8,6 +8,7 @@ import platform
 import scrapy
 from selenium import webdriver
 from selenium.webdriver.common.by import By
+from selenium.webdriver.common.proxy import Proxy, ProxyType
 from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 from selenium.webdriver import FirefoxOptions, ChromeOptions
 from selenium.webdriver.support.ui import WebDriverWait
@@ -546,6 +547,12 @@ def close_browser(browser, page, inp):
             close_browser(browser)
         '''
 
+        # Remove proxy after closing browser instance
+        proxy = {'ip': '', 'port': ''}
+        proxy = VarSafe(proxy, "proxy", "proxy")
+
+        save_variables(kept_variables, 'scr_vars.kpv')
+
     except ConnectionRefusedError:
         pass
     except Exception:
@@ -796,16 +803,36 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
 
         try:
             self.driver_type = load_variable_safe('scr_vars.kpv', 'browser')['driver']
+        except Exception as e:
+            print('Error while loading driver type information: ', e)
+            self.driver_type = 'Firefox'
+
+        try:
             bool_scrape_in_browser = load_variable_safe('scr_vars.kpv', 'browser')['in_browser']
         except Exception as e:
-            self.driver_type = 'Firefox'
+            print('Error while loading headless mode information: ', e)
             bool_scrape_in_browser = True
-            print('Error while loading browser information: ', e)
+
+        try:
+            proxy_ip = load_variable_safe('scr_vars.kpv', 'proxy')['ip']
+            proxy_port = int(load_variable_safe('scr_vars.kpv', 'proxy')['port'])
+        except Exception as e:
+            print('Error while loading proxy information: ', e)
+            proxy_ip, proxy_port = '', ''
 
         if self.driver_type == 'Firefox':
-            capabilities = DesiredCapabilities.FIREFOX
+            capabilities = DesiredCapabilities.FIREFOX.copy()
             options = FirefoxOptions()
             capabilities["marionette"] = True
+
+            if proxy_ip and proxy_port:
+                proxy = f'{proxy_ip}:{proxy_port}'
+                firefox_proxies = Proxy()
+                firefox_proxies.ssl_proxy = proxy
+                firefox_proxies.http_proxy = proxy
+                firefox_proxies.proxy_type = ProxyType.MANUAL
+
+                options.proxy = firefox_proxies
 
             if not bool_scrape_in_browser:
                 options.add_argument("--headless")
@@ -823,6 +850,10 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
 
             capabilities = DesiredCapabilities.CHROME
             options = ChromeOptions()
+
+            if proxy_ip and proxy_port:
+                proxy = f'{proxy_ip}:{proxy_port}'
+                options.add_argument(f'--proxy-server={proxy}')
 
             if not bool_scrape_in_browser:
                 options.add_argument("--headless")
