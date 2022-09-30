@@ -825,14 +825,8 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
             self.options = FirefoxOptions()
             capabilities["marionette"] = True
 
-            if proxy_ip and proxy_port:
-                proxy = f'{proxy_ip}:{proxy_port}'
-                firefox_proxies = Proxy()
-                firefox_proxies.ssl_proxy = proxy
-                firefox_proxies.http_proxy = proxy
-                firefox_proxies.proxy_type = ProxyType.MANUAL
-
-                options.proxy = firefox_proxies
+            if proxy_info is not None:
+                sw_options = self._set_proxy(proxy_info)
 
             if not bool_scrape_in_browser:
                 self.options.add_argument("--headless")
@@ -849,13 +843,11 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                 self.browser = webdriver.Firefox(options=self.options, capabilities=capabilities)
 
         elif self.driver_type == 'Chrome':
-
             capabilities = DesiredCapabilities.CHROME
             self.options = ChromeOptions()
 
-            if proxy_ip and proxy_port:
-                proxy = f'{proxy_ip}:{proxy_port}'
-                options.add_argument(f'--proxy-server={proxy}')
+            if proxy_info is not None:
+                sw_options = self._set_proxy(proxy_info)
 
             if not bool_scrape_in_browser:
                 self.options.add_argument("--headless")
@@ -877,6 +869,45 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
 
     def __del__(self):
         self.browser.quit()
+
+    def _set_proxy(self, proxy_info: dict) -> dict:
+        """
+        Sets proxy before launching browser instance.
+        :param proxy_info: proxy params (ip, port, username, password)
+        """
+
+        proxy_ip = proxy_info['ip']
+        proxy_port = proxy_info['port']
+        proxy_username = proxy_info['username']
+        proxy_password = proxy_info['password']
+
+        if proxy_username and proxy_password:
+            proxy = f'http://{proxy_username}:{proxy_password}@{proxy_ip}:{proxy_port}'
+        else:
+            proxy = f'{proxy_ip}:{proxy_port}'
+
+        # Proxy with authentication
+        if 'http://' in proxy:
+            # selenium-wire proxy settings
+            sw_options = {
+                'proxy': {
+                    'http': proxy,
+                    'https': proxy,
+                    'no_proxy': 'localhost,127.0.0.1'
+                }
+            }
+
+        # Proxy without authentication
+        else:
+            sw_options = None
+            firefox_proxies = Proxy()
+            firefox_proxies.ssl_proxy = proxy
+            firefox_proxies.http_proxy = proxy
+            firefox_proxies.proxy_type = ProxyType.MANUAL
+
+            self.options.proxy = firefox_proxies
+
+        return sw_options
 
     def start_requests(self):
         URLS = ['https://www.forloop.ai']
