@@ -7,6 +7,7 @@ import datetime
 import platform
 import scrapy
 from selenium import webdriver
+from seleniumwire import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.proxy import Proxy, ProxyType
 from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
@@ -841,10 +842,12 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                 window_size_x = 1450
 
             try:
-                self.browser = webdriver.Firefox(options=options, capabilities=capabilities,
-                                                 service=Service(GeckoDriverManager().install()))
-            except:
-                self.browser = webdriver.Firefox(options=options, capabilities=capabilities)
+                self.browser = webdriver.Firefox(options=self.options, capabilities=capabilities,
+                                                 service=Service(GeckoDriverManager().install()),
+                                                 seleniumwire_options=sw_options)
+            except Exception as e:
+                print(f'ERROR WHILE CREATING FIREFOX INSTANCE {e}')
+                self.browser = webdriver.Firefox(options=self.options, capabilities=capabilities)
 
         elif self.driver_type == 'Chrome':
 
@@ -862,8 +865,9 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                 window_size_x = 1450
 
             try:
-                self.browser = webdriver.Chrome(options=options, desired_capabilities=capabilities,
-                                                executable_path=ChromeDriverManager().install())
+                self.browser = webdriver.Chrome(options=self.options, desired_capabilities=capabilities,
+                                                executable_path=ChromeDriverManager().install(),
+                                                seleniumwire_options=sw_options)
             except:
                 pass
 
