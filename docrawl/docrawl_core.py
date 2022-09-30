@@ -548,7 +548,7 @@ def close_browser(browser, page, inp):
         '''
 
         # Remove proxy after closing browser instance
-        proxy = {'ip': '', 'port': ''}
+        proxy = {'ip': '', 'port': '', 'username': '', 'password': ''}
         proxy = VarSafe(proxy, "proxy", "proxy")
 
         save_variables(kept_variables, 'scr_vars.kpv')
