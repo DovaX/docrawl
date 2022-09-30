@@ -815,11 +815,10 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
             bool_scrape_in_browser = True
 
         try:
-            proxy_ip = load_variable_safe('scr_vars.kpv', 'proxy')['ip']
-            proxy_port = int(load_variable_safe('scr_vars.kpv', 'proxy')['port'])
+            proxy_info = load_variable_safe('scr_vars.kpv', 'proxy')
         except Exception as e:
             print('Error while loading proxy information: ', e)
-            proxy_ip, proxy_port = '', ''
+            proxy_info = None
 
         if self.driver_type == 'Firefox':
             capabilities = DesiredCapabilities.FIREFOX.copy()
