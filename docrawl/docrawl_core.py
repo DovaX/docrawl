@@ -822,7 +822,7 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
 
         if self.driver_type == 'Firefox':
             capabilities = DesiredCapabilities.FIREFOX.copy()
-            options = FirefoxOptions()
+            self.options = FirefoxOptions()
             capabilities["marionette"] = True
 
             if proxy_ip and proxy_port:
@@ -835,7 +835,7 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                 options.proxy = firefox_proxies
 
             if not bool_scrape_in_browser:
-                options.add_argument("--headless")
+                self.options.add_argument("--headless")
 
                 # For headless mode different width of window is needed
                 window_size_x = 1450
@@ -849,14 +849,14 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
         elif self.driver_type == 'Chrome':
 
             capabilities = DesiredCapabilities.CHROME
-            options = ChromeOptions()
+            self.options = ChromeOptions()
 
             if proxy_ip and proxy_port:
                 proxy = f'{proxy_ip}:{proxy_port}'
                 options.add_argument(f'--proxy-server={proxy}')
 
             if not bool_scrape_in_browser:
-                options.add_argument("--headless")
+                self.options.add_argument("--headless")
 
                 # For headless mode different width of window is needed
                 window_size_x = 1450
