@@ -142,7 +142,8 @@ def scan_web_page(browser, page, inp):
     incl_headlines = inp[3]
     incl_links = inp[4]
     incl_images = inp[5]
-    by_xpath = inp[6]
+    incl_buttons = inp[6]
+    by_xpath = inp[7]
 
     # Folder for serialized dataframes
     PICKLE_FOLDER = 'src/pickle_scraped_data'
@@ -153,6 +154,8 @@ def scan_web_page(browser, page, inp):
     TEXT_TAGS = ['p', 'strong', 'em']  # 'div']
     HEADLINE_TAGS = ['h1', 'h2']
     IMAGE_TAGS = ['img']
+    BUTTON_TAGS = ['button', 'a[@role="button"]', 'a[contains(@class, "button")]',
+                   'a[contains(@id, "button")]', 'a[@type="button"]', 'a[contains(@class, "btn")]']
 
     # <a> tags, excluding links in menu, links as images, mailto links and links with scripts
     LINK_TAGS = ["""
@@ -470,6 +473,10 @@ def scan_web_page(browser, page, inp):
     ##### IMAGES SECTION #####
     if incl_images:
         find_elements(IMAGE_TAGS, 'image')
+
+    ##### BUTTONS SECTION #####
+    if incl_buttons:
+        find_elements(BUTTON_TAGS, 'button')
 
     ##### CUSTOM XPATH SECTION #####
     if by_xpath:
