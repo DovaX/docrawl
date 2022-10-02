@@ -7,7 +7,9 @@ import datetime
 import platform
 import scrapy
 from selenium import webdriver
+from seleniumwire import webdriver
 from selenium.webdriver.common.by import By
+from selenium.webdriver.common.proxy import Proxy, ProxyType
 from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 from selenium.webdriver import FirefoxOptions, ChromeOptions
 from selenium.webdriver.support.ui import WebDriverWait
@@ -140,7 +142,8 @@ def scan_web_page(browser, page, inp):
     incl_headlines = inp[3]
     incl_links = inp[4]
     incl_images = inp[5]
-    by_xpath = inp[6]
+    incl_buttons = inp[6]
+    by_xpath = inp[7]
 
     # Folder for serialized dataframes
     PICKLE_FOLDER = 'src/pickle_scraped_data'
@@ -151,6 +154,8 @@ def scan_web_page(browser, page, inp):
     TEXT_TAGS = ['p', 'strong', 'em']  # 'div']
     HEADLINE_TAGS = ['h1', 'h2']
     IMAGE_TAGS = ['img']
+    BUTTON_TAGS = ['button', 'a[@role="button"]', 'a[contains(@class, "button")]',
+                   'a[contains(@id, "button")]', 'a[@type="button"]', 'a[contains(@class, "btn")]']
 
     # <a> tags, excluding links in menu, links as images, mailto links and links with scripts
     LINK_TAGS = ["""
@@ -469,6 +474,10 @@ def scan_web_page(browser, page, inp):
     if incl_images:
         find_elements(IMAGE_TAGS, 'image')
 
+    ##### BUTTONS SECTION #####
+    if incl_buttons:
+        find_elements(BUTTON_TAGS, 'button')
+
     ##### CUSTOM XPATH SECTION #####
     if by_xpath:
         custom_tag = [by_xpath]
@@ -545,6 +554,12 @@ def close_browser(browser, page, inp):
             time.sleep(1)
             close_browser(browser)
         '''
+
+        # Remove proxy after closing browser instance
+        proxy = {'ip': '', 'port': '', 'username': '', 'password': ''}
+        proxy = VarSafe(proxy, "proxy", "proxy")
+
+        save_variables(kept_variables, 'scr_vars.kpv')
 
     except ConnectionRefusedError:
         pass
@@ -796,43 +811,59 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
 
         try:
             self.driver_type = load_variable_safe('scr_vars.kpv', 'browser')['driver']
+        except Exception as e:
+            print('Error while loading driver type information: ', e)
+            self.driver_type = 'Firefox'
+
+        try:
             bool_scrape_in_browser = load_variable_safe('scr_vars.kpv', 'browser')['in_browser']
         except Exception as e:
-            self.driver_type = 'Firefox'
+            print('Error while loading headless mode information: ', e)
             bool_scrape_in_browser = True
-            print('Error while loading browser information: ', e)
+
+        try:
+            proxy_info = load_variable_safe('scr_vars.kpv', 'proxy')
+        except Exception as e:
+            print('Error while loading proxy information: ', e)
+            proxy_info = None
 
         if self.driver_type == 'Firefox':
-            capabilities = DesiredCapabilities.FIREFOX
-            options = FirefoxOptions()
+            capabilities = DesiredCapabilities.FIREFOX.copy()
+            self.options = FirefoxOptions()
             capabilities["marionette"] = True
 
+            sw_options = self._set_proxy(proxy_info)
+
             if not bool_scrape_in_browser:
-                options.add_argument("--headless")
+                self.options.add_argument("--headless")
 
                 # For headless mode different width of window is needed
                 window_size_x = 1450
 
             try:
-                self.browser = webdriver.Firefox(options=options, capabilities=capabilities,
-                                                 service=Service(GeckoDriverManager().install()))
-            except:
-                self.browser = webdriver.Firefox(options=options, capabilities=capabilities)
+                self.browser = webdriver.Firefox(options=self.options, capabilities=capabilities,
+                                                 service=Service(GeckoDriverManager().install()),
+                                                 seleniumwire_options=sw_options)
+            except Exception as e:
+                print(f'ERROR WHILE CREATING FIREFOX INSTANCE {e}')
+                self.browser = webdriver.Firefox(options=self.options, capabilities=capabilities)
 
         elif self.driver_type == 'Chrome':
-
             capabilities = DesiredCapabilities.CHROME
-            options = ChromeOptions()
+            self.options = ChromeOptions()
+
+            sw_options = self._set_proxy(proxy_info)
 
             if not bool_scrape_in_browser:
-                options.add_argument("--headless")
+                self.options.add_argument("--headless")
 
                 # For headless mode different width of window is needed
                 window_size_x = 1450
 
             try:
-                self.browser = webdriver.Chrome(options=options, desired_capabilities=capabilities,
-                                                executable_path=ChromeDriverManager().install())
+                self.browser = webdriver.Chrome(options=self.options, desired_capabilities=capabilities,
+                                                executable_path=ChromeDriverManager().install(),
+                                                seleniumwire_options=sw_options)
             except:
                 pass
 
@@ -843,6 +874,48 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
 
     def __del__(self):
         self.browser.quit()
+
+    def _set_proxy(self, proxy_info: dict) -> dict:
+        """
+        Sets proxy before launching browser instance.
+        :param proxy_info: proxy params (ip, port, username, password)
+        """
+
+        if proxy_info is None:
+            return None
+
+        proxy_ip = proxy_info['ip']
+        proxy_port = proxy_info['port']
+        proxy_username = proxy_info['username']
+        proxy_password = proxy_info['password']
+
+        if proxy_username and proxy_password:
+            proxy = f'http://{proxy_username}:{proxy_password}@{proxy_ip}:{proxy_port}'
+        else:
+            proxy = f'{proxy_ip}:{proxy_port}'
+
+        # Proxy with authentication
+        if 'http://' in proxy:
+            # selenium-wire proxy settings
+            sw_options = {
+                'proxy': {
+                    'http': proxy,
+                    'https': proxy,
+                    'no_proxy': 'localhost,127.0.0.1'
+                }
+            }
+
+        # Proxy without authentication
+        else:
+            sw_options = None
+            firefox_proxies = Proxy()
+            firefox_proxies.ssl_proxy = proxy
+            firefox_proxies.http_proxy = proxy
+            firefox_proxies.proxy_type = ProxyType.MANUAL
+
+            self.options.proxy = firefox_proxies
+
+        return sw_options
 
     def start_requests(self):
         URLS = ['https://www.forloop.ai']
