@@ -825,8 +825,7 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
             self.options = FirefoxOptions()
             capabilities["marionette"] = True
 
-            if proxy_info is not None:
-                sw_options = self._set_proxy(proxy_info)
+            sw_options = self._set_proxy(proxy_info)
 
             if not bool_scrape_in_browser:
                 self.options.add_argument("--headless")
@@ -846,8 +845,7 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
             capabilities = DesiredCapabilities.CHROME
             self.options = ChromeOptions()
 
-            if proxy_info is not None:
-                sw_options = self._set_proxy(proxy_info)
+            sw_options = self._set_proxy(proxy_info)
 
             if not bool_scrape_in_browser:
                 self.options.add_argument("--headless")
@@ -875,6 +873,9 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
         Sets proxy before launching browser instance.
         :param proxy_info: proxy params (ip, port, username, password)
         """
+
+        if proxy_info is None:
+            return None
 
         proxy_ip = proxy_info['ip']
         proxy_port = proxy_info['port']
