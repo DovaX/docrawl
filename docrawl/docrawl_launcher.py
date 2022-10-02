@@ -235,9 +235,12 @@ def extract_table_xpath(xpath_row, xpath_col, first_row_header, filename="extrac
     # docrawl_core.spider_requests={"url":url,"loaded":False}
 
 
-def click_xpath(args):
+def click_xpath(xpath):
     # function = "exec"
-    print(args)
+    print(xpath)
+
+    '''
+    OLD IMPLEMENTATION 
 
     if type(args) == list:
         command = args[0]
@@ -247,6 +250,10 @@ def click_xpath(args):
 
     function = "click_xpath"
     inp = command
+    '''
+
+    function = "click_xpath"
+    inp = [xpath]
 
     spider_functions = {"function": function, "input": inp, "done": False}
     spider_functions = kv.VarSafe(spider_functions, "spider_functions", "spider_functions")
