@@ -881,7 +881,8 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
         :param proxy_info: proxy params (ip, port, username, password)
         """
 
-        if proxy_info is None:
+        # If proxy was not set
+        if proxy_info is None or any([not proxy_info['ip'], not proxy_info['port']]):
             return None
 
         proxy_ip = proxy_info['ip']
