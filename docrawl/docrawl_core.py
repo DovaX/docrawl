@@ -240,11 +240,20 @@ def scan_web_page(browser, page, inp):
         """
         elems_pos = []
 
+        existing_xpaths = []
+
         for selector, name, xpath, data in zip(selectors, names, xpaths, data):
+
+            # Deduplicate elements by xpath (on some pages the same element is selected twice)
+            if xpath in existing_xpaths:
+                continue
+
             elems_pos.append({'rect': selector.rect,
                               'name': name,
                               'xpath': xpath,
                               'data': data})
+
+            existing_xpaths.append(xpath)
 
         elements_positions = elems_pos
         elements_positions = VarSafe(elements_positions, 'elements_positions', 'elements_positions')
