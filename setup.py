@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
     
 setuptools.setup(
     name='docrawl',
-    version='0.2.9',
+    version='0.3.2',
     author='DovaX',
     author_email='dovax.ai@gmail.com',
     description='Do automated crawling of pages using scrapy',
@@ -19,7 +19,7 @@ setuptools.setup(
         "Operating System :: OS Independent",
     ],
     install_requires=[
-          'scrapy', 'selenium>=4.0', 'crochet', 'pynput', 'keepvariable', 'selenium-wire'
+          'scrapy','selenium>=4.0','crochet','pynput','keepvariable','selenium-wire'
      ],
     python_requires='>=3.6',
 )
