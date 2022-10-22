@@ -429,36 +429,6 @@ def scan_web_page(browser, page, inp):
 
         return xpath
 
-    def generate_XPath(childElement, current):
-        """
-        [OLD FUNCTION, NOT USED NOW -> TO BE DEPRECATED] Generates XPath of Selenium object.
-         Recursive function.
-            :param childElement: Selenium Selector
-            :param current: string, current XPath
-            :return - XPath
-        """
-
-        childTag = childElement.tag_name
-
-        if childTag == 'html':
-            return '/html[1]' + current
-
-        parentElement = childElement.find_element(By.XPATH, '..')
-        childrenElements = parentElement.find_elements(By.XPATH, '*')
-
-        count = 0
-
-        for childrenElement in childrenElements:
-            childrenElementTag = childrenElement.tag_name
-
-            if childTag == childrenElementTag:
-                count += 1
-
-            if childElement == childrenElement:
-                return generate_XPath(parentElement, f'/{childTag}[{count}]{current}')
-
-        return None
-
     ##### TABLES SECTION #####
     if incl_tables:
         find_elements(TABLE_TAG, 'table')
