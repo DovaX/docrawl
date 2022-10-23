@@ -656,7 +656,7 @@ def extract_xpath(browser, page, inp):
     data = page.xpath(xpath).extract()
 
     if not data:
-        data = ['EmptyElement']
+        data = ['None']
 
     with open(filename, write_in_file_mode, encoding="utf-8") as f:
         if isinstance(data, list):
