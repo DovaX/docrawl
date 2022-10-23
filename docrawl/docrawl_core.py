@@ -651,6 +651,10 @@ def extract_xpath(browser, page, inp):
     """
     xpath = inp[0]
     filename = inp[1]  # "extracted_data.txt"
+
+    if not xpath.endswith('/text()'):
+        xpath += '/text()'
+
     try:
         write_in_file_mode = inp[2]
     except:
