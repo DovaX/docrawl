@@ -6,8 +6,13 @@
 import datetime
 import platform
 import scrapy
-from selenium import webdriver
-from seleniumwire import webdriver
+
+# Due to problems with selenium wire on linux systems
+try:
+    from seleniumwire import webdriver
+except:
+    from selenium import webdriver
+
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.proxy import Proxy, ProxyType
 from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
@@ -429,6 +434,7 @@ def scan_web_page(browser, page, inp):
 
         return xpath
 
+
     ##### TABLES SECTION #####
     if incl_tables:
         find_elements(TABLE_TAG, 'table')
@@ -828,11 +834,12 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
 
             try:
                 self.browser = webdriver.Firefox(options=self.options, capabilities=capabilities,
-                                                 service=Service(GeckoDriverManager().install()),
-                                                 seleniumwire_options=sw_options)
+                                                 service=Service(GeckoDriverManager().install()), seleniumwire_options=sw_options)
             except Exception as e:
-                print(f'ERROR WHILE CREATING FIREFOX INSTANCE {e}')
-                self.browser = webdriver.Firefox(options=self.options, capabilities=capabilities)
+                print(f'Error while crerating Firefox instance {e}. Error may be caused by selenium-wire, using usual Selenium (proxy could not be used)')
+                from selenium import webdriver
+                self.browser = webdriver.Firefox(options=self.options, service=Service(GeckoDriverManager().install(),
+                                                                                       capabilities=capabilities))
 
         elif self.driver_type == 'Chrome':
             capabilities = DesiredCapabilities.CHROME
@@ -848,10 +855,12 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
 
             try:
                 self.browser = webdriver.Chrome(options=self.options, desired_capabilities=capabilities,
-                                                executable_path=ChromeDriverManager().install(),
-                                                seleniumwire_options=sw_options)
-            except:
-                pass
+                                                executable_path=ChromeDriverManager().install(), seleniumwire_options=sw_options)
+            except Exception as e:
+                print(f'Error while crerating Chrome instance {e}. Error may be caused by selenium-wire, using usual Selenium (proxy could not be used)')
+                from selenium import webdriver
+                self.browser = webdriver.Chrome(options=self.options, desired_capabilities=capabilities,
+                                                executable_path=ChromeDriverManager().install())
 
         window_size_x = 1820
 
