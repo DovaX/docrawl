@@ -6,8 +6,13 @@
 import datetime
 import platform
 import scrapy
-from selenium import webdriver
-from seleniumwire import webdriver
+
+# Due to problems with selenium wire on linux systems
+try:
+    from seleniumwire import webdriver
+except:
+    from selenium import webdriver
+
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.proxy import Proxy, ProxyType
 from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
@@ -151,7 +156,7 @@ def scan_web_page(browser, page, inp):
     # Predefined tags by type
     TABLE_TAG = ['table']
     BULLET_TAGS = ['ul', 'ol']
-    TEXT_TAGS = ['p', 'strong', 'em']  # 'div']
+    TEXT_TAGS = ['p', 'strong', 'em', 'div[normalize-space(text())]', 'span[normalize-space(text())]']
     HEADLINE_TAGS = ['h1', 'h2']
     IMAGE_TAGS = ['img']
     BUTTON_TAGS = ['button', 'a[@role="button"]', 'a[contains(@class, "button")]',
@@ -429,35 +434,6 @@ def scan_web_page(browser, page, inp):
 
         return xpath
 
-    def generate_XPath(childElement, current):
-        """
-        [OLD FUNCTION, NOT USED NOW -> TO BE DEPRECATED] Generates XPath of Selenium object.
-         Recursive function.
-            :param childElement: Selenium Selector
-            :param current: string, current XPath
-            :return - XPath
-        """
-
-        childTag = childElement.tag_name
-
-        if childTag == 'html':
-            return '/html[1]' + current
-
-        parentElement = childElement.find_element(By.XPATH, '..')
-        childrenElements = parentElement.find_elements(By.XPATH, '*')
-
-        count = 0
-
-        for childrenElement in childrenElements:
-            childrenElementTag = childrenElement.tag_name
-
-            if childTag == childrenElementTag:
-                count += 1
-
-            if childElement == childrenElement:
-                return generate_XPath(parentElement, f'/{childTag}[{count}]{current}')
-
-        return None
 
     ##### TABLES SECTION #####
     if incl_tables:
@@ -489,6 +465,9 @@ def scan_web_page(browser, page, inp):
 
     ##### CUSTOM XPATH SECTION #####
     if by_xpath:
+        # With text() at the end will not work
+        by_xpath = by_xpath.replace('/text()', '').rstrip('/')
+
         custom_tag = [by_xpath]
         custom_tag_splitted = re.split('//|/', by_xpath)  # Split XPath in parts
         last_element_in_xpath = custom_tag_splitted[-1]  # Last element in XPath
@@ -678,6 +657,10 @@ def extract_xpath(browser, page, inp):
     """
     xpath = inp[0]
     filename = inp[1]  # "extracted_data.txt"
+
+    if not xpath.endswith('/text()'):
+        xpath += '/text()'
+
     try:
         write_in_file_mode = inp[2]
     except:
@@ -686,7 +669,7 @@ def extract_xpath(browser, page, inp):
     data = page.xpath(xpath).extract()
 
     if not data:
-        data = ['EmptyElement']
+        data = ['None']
 
     with open(filename, write_in_file_mode, encoding="utf-8") as f:
         if isinstance(data, list):
@@ -851,11 +834,12 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
 
             try:
                 self.browser = webdriver.Firefox(options=self.options, capabilities=capabilities,
-                                                 service=Service(GeckoDriverManager().install()),
-                                                 seleniumwire_options=sw_options)
+                                                 service=Service(GeckoDriverManager().install()), seleniumwire_options=sw_options)
             except Exception as e:
-                print(f'ERROR WHILE CREATING FIREFOX INSTANCE {e}')
-                self.browser = webdriver.Firefox(options=self.options, capabilities=capabilities)
+                print(f'Error while crerating Firefox instance {e}. Error may be caused by selenium-wire, using usual Selenium (proxy could not be used)')
+                from selenium import webdriver
+                self.browser = webdriver.Firefox(options=self.options, service=Service(GeckoDriverManager().install(),
+                                                                                       capabilities=capabilities))
 
         elif self.driver_type == 'Chrome':
             capabilities = DesiredCapabilities.CHROME
@@ -871,10 +855,12 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
 
             try:
                 self.browser = webdriver.Chrome(options=self.options, desired_capabilities=capabilities,
-                                                executable_path=ChromeDriverManager().install(),
-                                                seleniumwire_options=sw_options)
-            except:
-                pass
+                                                executable_path=ChromeDriverManager().install(), seleniumwire_options=sw_options)
+            except Exception as e:
+                print(f'Error while crerating Chrome instance {e}. Error may be caused by selenium-wire, using usual Selenium (proxy could not be used)')
+                from selenium import webdriver
+                self.browser = webdriver.Chrome(options=self.options, desired_capabilities=capabilities,
+                                                executable_path=ChromeDriverManager().install())
 
         window_size_x = 1820
 
