@@ -7,10 +7,11 @@ import datetime
 import platform
 import scrapy
 
-# Due to problems with selenium wire on linux systems
+# Due to the problems with selenium wire on linux systems
 try:
     from seleniumwire import webdriver
 except:
+    print('Error while importing selenium-wire, using selenium instead')
     from selenium import webdriver
 
 from selenium.webdriver.common.by import By
@@ -833,13 +834,15 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                 window_size_x = 1450
 
             try:
+                from seleniumwire import webdriver
                 self.browser = webdriver.Firefox(options=self.options, capabilities=capabilities,
                                                  service=Service(GeckoDriverManager().install()), seleniumwire_options=sw_options)
             except Exception as e:
-                print(f'Error while crerating Firefox instance {e}. Error may be caused by selenium-wire, using usual Selenium (proxy could not be used)')
                 from selenium import webdriver
+                print(f'Error while creating Firefox instance {e}. Error may be caused by selenium-wire, so using usual Selenium instead (proxy thus could not be used)')
                 self.browser = webdriver.Firefox(options=self.options, service=Service(GeckoDriverManager().install(),
                                                                                        capabilities=capabilities))
+
 
         elif self.driver_type == 'Chrome':
             capabilities = DesiredCapabilities.CHROME
@@ -854,6 +857,7 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                 window_size_x = 1450
 
             try:
+                from seleniumwire import webdriver
                 self.browser = webdriver.Chrome(options=self.options, desired_capabilities=capabilities,
                                                 executable_path=ChromeDriverManager().install(), seleniumwire_options=sw_options)
             except Exception as e:
