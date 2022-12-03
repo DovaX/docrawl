@@ -170,8 +170,8 @@ def scan_web_page(browser, page, inp):
                     and not(contains(@id, "menu"))  
                     and not(contains(@class, "Menu"))  
                     and not(contains(@class, "menu"))   
-                    and not(child::img) 
-                    and not(child::svg)  
+                    and not(descendant::img) 
+                    and not(descendant::svg)  
                     and not(contains(@href, "javascript"))  
                     and not(contains(@href, "mailto"))]
                     """]
