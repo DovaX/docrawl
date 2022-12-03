@@ -371,6 +371,8 @@ def scan_web_page(browser, page, inp):
                 xpath += '/@href'
             elif 'element' in element_name:
                 pass
+            elif 'button' in element_name:
+                pass
             else:
                 xpath += '//text()'
 
