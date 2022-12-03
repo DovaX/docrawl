@@ -159,8 +159,7 @@ def download_images(image_xpath, filename):
     kv.save_variables(kv.kept_variables, "scr_vars.kpv")
 
 
-def extract_xpath(xpath, filename="extracted_data.xlsx", write_in_file_mode="w+"):
-    # function = "exec"
+def extract_xpath(xpath, filename, write_in_file_mode="w+"):
     print("LAUNCHER", xpath, filename)
     args = xpath
     if type(args) == list:
@@ -169,11 +168,6 @@ def extract_xpath(xpath, filename="extracted_data.xlsx", write_in_file_mode="w+"
         command = args
 
     command = [xpath, filename, write_in_file_mode]
-    # command=command.replace("'","$")
-    # command=command.replace('"','€')
-
-    # inp = "print(page.xpath('" + command + "').extract())"
-    # print("INPUT",inp)
 
     function = "extract_xpath"
     inp = command
@@ -181,8 +175,6 @@ def extract_xpath(xpath, filename="extracted_data.xlsx", write_in_file_mode="w+"
     spider_functions = {"function": function, "input": inp, "done": False}
     spider_functions = kv.VarSafe(spider_functions, "spider_functions", "spider_functions")
     kv.save_variables(kv.kept_variables, "scr_vars.kpv")
-
-    # docrawl_core.spider_requests={"url":url,"loaded":False}
 
 
 def extract_multiple_xpath(xpaths, filename="extracted_data.xlsx"):
