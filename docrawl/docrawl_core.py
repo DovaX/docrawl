@@ -680,8 +680,17 @@ def download_images(browser, page, inp):
 
 def click_xpath(browser, page, inp):
     xpath = inp[0]
-    browser.find_element_by_xpath(xpath).click()
 
+    print('SEARCHING FOR ELEMENT')
+    element = browser.find_element(By.XPATH, xpath)
+
+    if element.is_enabled():
+        print('BUTTON IS ENABLED')
+        element.click()
+    else:
+        print('BUTTON IS NOT ENABLED, ENABLING IT')
+        browser.execute_script("arguments[0].removeAttribute('disabled','disabled')", element)
+        element.click()
 
 def extract_xpath(browser, page, inp):
     """
