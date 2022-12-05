@@ -7,10 +7,11 @@ import datetime
 import platform
 import scrapy
 
-# Due to problems with selenium wire on linux systems
+# Due to the problems with selenium wire on linux systems
 try:
-    from seleniumwire import webdriver
+    from selenium import webdriver
 except:
+    print('Error while importing selenium-wire, using selenium instead')
     from selenium import webdriver
 
 from selenium.webdriver.common.by import By
@@ -370,6 +371,8 @@ def scan_web_page(browser, page, inp):
                 xpath += '/@href'
             elif 'element' in element_name:
                 pass
+            elif 'button' in element_name:
+                pass
             else:
                 xpath += '//text()'
 
@@ -434,6 +437,35 @@ def scan_web_page(browser, page, inp):
 
         return xpath
 
+    def generate_XPath(childElement, current):
+        """
+        [OLD FUNCTION, NOT USED NOW -> TO BE DEPRECATED] Generates XPath of Selenium object.
+         Recursive function.
+            :param childElement: Selenium Selector
+            :param current: string, current XPath
+            :return - XPath
+        """
+
+        childTag = childElement.tag_name
+
+        if childTag == 'html':
+            return '/html[1]' + current
+
+        parentElement = childElement.find_element(By.XPATH, '..')
+        childrenElements = parentElement.find_elements(By.XPATH, '*')
+
+        count = 0
+
+        for childrenElement in childrenElements:
+            childrenElementTag = childrenElement.tag_name
+
+            if childTag == childrenElementTag:
+                count += 1
+
+            if childElement == childrenElement:
+                return generate_XPath(parentElement, f'/{childTag}[{count}]{current}')
+
+        return None
 
     ##### TABLES SECTION #####
     if incl_tables:
@@ -648,8 +680,17 @@ def download_images(browser, page, inp):
 
 def click_xpath(browser, page, inp):
     xpath = inp[0]
-    browser.find_element_by_xpath(xpath).click()
 
+    print('SEARCHING FOR ELEMENT')
+    element = browser.find_element(By.XPATH, xpath)
+
+    if element.is_enabled():
+        print('BUTTON IS ENABLED')
+        element.click()
+    else:
+        print('BUTTON IS NOT ENABLED, ENABLING IT')
+        browser.execute_script("arguments[0].removeAttribute('disabled','disabled')", element)
+        element.click()
 
 def extract_xpath(browser, page, inp):
     """
@@ -834,12 +875,10 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
 
             try:
                 self.browser = webdriver.Firefox(options=self.options, capabilities=capabilities,
-                                                 service=Service(GeckoDriverManager().install()), seleniumwire_options=sw_options)
+                                                 service=Service(GeckoDriverManager().install()))
             except Exception as e:
-                print(f'Error while crerating Firefox instance {e}. Error may be caused by selenium-wire, using usual Selenium (proxy could not be used)')
-                from selenium import webdriver
-                self.browser = webdriver.Firefox(options=self.options, service=Service(GeckoDriverManager().install(),
-                                                                                       capabilities=capabilities))
+                print(f'ERROR WHILE CREATING FIREFOX INSTANCE {e}')
+                self.browser = webdriver.Firefox(options=self.options, capabilities=capabilities)
 
         elif self.driver_type == 'Chrome':
             capabilities = DesiredCapabilities.CHROME
@@ -855,12 +894,9 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
 
             try:
                 self.browser = webdriver.Chrome(options=self.options, desired_capabilities=capabilities,
-                                                executable_path=ChromeDriverManager().install(), seleniumwire_options=sw_options)
-            except Exception as e:
-                print(f'Error while crerating Chrome instance {e}. Error may be caused by selenium-wire, using usual Selenium (proxy could not be used)')
-                from selenium import webdriver
-                self.browser = webdriver.Chrome(options=self.options, desired_capabilities=capabilities,
                                                 executable_path=ChromeDriverManager().install())
+            except:
+                pass
 
         window_size_x = 1820
 
