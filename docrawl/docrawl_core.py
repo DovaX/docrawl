@@ -699,7 +699,7 @@ def extract_xpath(browser, page, inp):
     xpath = inp[0]
     filename = inp[1]  # "extracted_data.txt"
 
-    if not xpath.endswith('/text()'):
+    if not xpath.endswith('/text()') and not '@' in xpath.split('/')[-1]:
         xpath += '/text()'
 
     try:
