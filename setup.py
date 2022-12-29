@@ -19,7 +19,7 @@ setuptools.setup(
         "Operating System :: OS Independent",
     ],
     install_requires=[
-          'scrapy','selenium>=4.0','crochet','pynput','keepvariable','selenium-wire'
+          'scrapy','selenium>=4.0','crochet','pynput','keepvariable','selenium-wire', 'psutil'
      ],
     python_requires='>=3.6',
 )
