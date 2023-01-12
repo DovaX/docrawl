@@ -182,6 +182,7 @@ def scan_web_page(browser, page, inp):
                        'text': TEXT_TAGS,
                        'headline': HEADLINE_TAGS,
                        'image': IMAGE_TAGS,
+                       'button': BUTTON_TAGS,
                        'link': LINK_TAGS + ['a']}  # + ['a'] is to identify link tags when using custom XPath
 
     try:
