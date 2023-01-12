@@ -51,8 +51,8 @@ def extract_page_source(filename):
     kv.save_variables(kv.kept_variables, "scr_vars.kpv")
 
 
-def scan_web_page(incl_tables, incl_bullets, incl_texts, incl_headlines, incl_links, incl_images, incl_buttons,
-                  by_xpath=None):
+def scan_web_page(incl_tables=False, incl_bullets=False, incl_texts=False, incl_headlines=False, incl_links=False,
+                  incl_images=False, incl_buttons=False, by_xpath=None):
     """
     Launches find_tables function from core.
         :param incl_tables: boolean, search for tables
