@@ -498,7 +498,7 @@ def scan_web_page(browser, page, inp):
     ##### CUSTOM XPATH SECTION #####
     if by_xpath:
         # With text() at the end will not work
-        by_xpath = by_xpath.replace('/text()', '').rstrip('/')
+        by_xpath = by_xpath.removesuffix('/text()').rstrip('/')
 
         custom_tag = [by_xpath]
         custom_tag_splitted = re.split('//|/', by_xpath)  # Split XPath in parts
