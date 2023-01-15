@@ -701,6 +701,10 @@ def extract_xpath(browser, page, inp):
     if not xpath.endswith('/text()') and not '@' in xpath.split('/')[-1]:
         xpath += '/text()'
 
+    # Extract link from "a" tags
+    if xpath.split('/')[-1] == 'a' or xpath.split('/')[-1] == '/a' or xpath.split('/')[-1].startswith('a['):
+        xpath += '/@href'
+
     try:
         write_in_file_mode = inp[2]
     except:
