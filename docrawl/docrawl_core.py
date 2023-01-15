@@ -150,9 +150,7 @@ def scan_web_page(browser, page, inp):
     incl_images = inp[5]
     incl_buttons = inp[6]
     by_xpath = inp[7]
-
-    # Folder for serialized dataframes
-    PICKLE_FOLDER = 'src/pickle_scraped_data'
+    output_folder = inp[8]
 
     # Predefined tags by type
     TABLE_TAG = ['table']
@@ -186,11 +184,11 @@ def scan_web_page(browser, page, inp):
                        'link': LINK_TAGS + ['a']}  # + ['a'] is to identify link tags when using custom XPath
 
     try:
-        shutil.rmtree(PICKLE_FOLDER)
+        shutil.rmtree(output_folder)
     except:
         pass
     finally:
-        os.mkdir(PICKLE_FOLDER)
+        os.mkdir(output_folder)
 
     # Dictionary with elements (XPaths, data)
     final_elements = {}
@@ -275,7 +273,7 @@ def scan_web_page(browser, page, inp):
             :param xpath: XPath of element
         """
 
-        path = os.path.join(PICKLE_FOLDER, element_name)
+        path = os.path.join(output_folder, element_name)
 
         if 'table' in element_name:
             table_2 = page.xpath(xpath)[0]
