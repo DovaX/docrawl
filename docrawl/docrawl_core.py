@@ -26,7 +26,7 @@ from webdriver_manager.chrome import ChromeDriverManager
 import urllib.request
 import requests
 import time
-import pynput.keyboard
+#import pynput.keyboard
 import pickle
 import os
 import shutil
@@ -35,8 +35,8 @@ import psutil
 
 import lxml.html
 
-keyboard = pynput.keyboard.Controller()
-key = pynput.keyboard.Key
+#keyboard = pynput.keyboard.Controller()
+#key = pynput.keyboard.Key
 
 from scrapy.selector import Selector
 from keepvariable.keepvariable_core import VarSafe, kept_variables, save_variables, load_variable_safe
