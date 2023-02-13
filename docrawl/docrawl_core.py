@@ -141,8 +141,10 @@ def take_png_screenshot(browser, page, inp):
 
         try:
             root_element = browser.find_element(By.XPATH, '/html')
-            #string = browser.get_full_page_screenshot_as_base64()
-            screenshot=browser.save_screenshot(filename)
+            #string = browser.get_full_page_screenshot_as_file(filename)
+            #driver.find_element_by_tag_name('body').screenshot('web_screenshot4.png')
+    
+            screenshot=browser.get_full_page_screenshot_as_file(filename)
             print(screenshot)
             browser.execute_script("return arguments[0].scrollIntoView(true);", root_element)
 
