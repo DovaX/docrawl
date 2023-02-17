@@ -52,7 +52,8 @@ def extract_page_source(filename):
 
 
 def scan_web_page(incl_tables=False, incl_bullets=False, incl_texts=False, incl_headlines=False, incl_links=False,
-                  incl_images=False, incl_buttons=False, by_xpath=None, output_folder='output/scraped_data'):
+                  incl_images=False, incl_buttons=False, by_xpath=None, context_xpath=None,
+                  output_folder='output/scraped_data'):
     """
     Launches find_tables function from core.
         :param incl_tables: boolean, search for tables
@@ -71,7 +72,7 @@ def scan_web_page(incl_tables=False, incl_bullets=False, incl_texts=False, incl_
     function = "scan_web_page"
 
     inp = [incl_tables, incl_bullets, incl_texts, incl_headlines, incl_links,
-           incl_images, incl_buttons, by_xpath, output_folder]
+           incl_images, incl_buttons, by_xpath, context_xpath, output_folder]
 
     spider_functions = {"function": function, "input": inp, "done": False}
     spider_functions = kv.VarSafe(spider_functions, "spider_functions", "spider_functions")

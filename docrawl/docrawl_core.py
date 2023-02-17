@@ -150,7 +150,8 @@ def scan_web_page(browser, page, inp):
     incl_images = inp[5]
     incl_buttons = inp[6]
     by_xpath = inp[7]
-    output_folder = inp[8]
+    context_xpath = inp[8]
+    output_folder = inp[9]
 
     # Predefined tags by type
     TABLE_TAG = ['table']
@@ -381,9 +382,14 @@ def scan_web_page(browser, page, inp):
                 with open(path + '.pickle', 'wb') as pickle_file:
                     pickle.dump(data, pickle_file)
 
+        if 'context' in element_name:
+            data = None
+        else:
+            data = pickle_file.name
+
         final_elements.update({element_name:
                                    {'selector': selector,
-                                    'data': pickle_file.name,
+                                    'data': data,
                                     'xpath': xpath}})
 
     def find_elements(tags, element_name, custom_tag=False):
@@ -513,6 +519,9 @@ def scan_web_page(browser, page, inp):
                 break
 
         find_elements(custom_tag, element_name, custom_tag=True)
+
+    if context_xpath:
+        find_elements([context_xpath], 'context', custom_tag=True)
 
     ##### SAVING COORDINATES OF ELEMENTS #####
 
