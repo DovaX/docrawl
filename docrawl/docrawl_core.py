@@ -916,6 +916,25 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
 
         return sw_options
 
+    def _load_function(self):
+        try:
+            spider_functions = load_variable_safe("scr_vars.kpv", "spider_functions")
+        except:
+            spider_functions = {"function": "print", "input": "Warning: function not given to docrawl",
+                                "done": False}
+            spider_functions = VarSafe(spider_functions, "spider_functions", "spider_functions")
+
+        return spider_functions
+
+    def _load_request(self):
+        try:
+            spider_requests = load_variable_safe("scr_vars.kpv", "spider_requests")
+        except Exception as e:
+            spider_requests = {"url": "www.forloop.ai", "loaded": True}
+            spider_requests = VarSafe(spider_requests, "spider_requests", "spider_requests")
+
+        return spider_requests
+
     def start_requests(self):
         URLS = ['https://www.forloop.ai']
         FUNCTIONS = [self.parse]
@@ -943,30 +962,25 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
             docrawl_logger.error(f'Error while determining browser PID: {e}')
 
         self.browser.get(response.url)
-        self.browser_meta_data['current_page'] = response.url
+        self.browser_meta_data['current_page'] = self.browser.current_url
 
         docrawl_core_done = False
         page = Selector(text=self.browser.page_source)
 
         while not docrawl_core_done:
-            try:
-                spider_requests = load_variable_safe("scr_vars.kpv", "spider_requests")
-            except Exception as e:
-                spider_requests = {"url": "www.forloop.ai", "loaded": True}
-                spider_requests = VarSafe(spider_requests, "spider_requests", "spider_requests")
-            try:
-                spider_functions = load_variable_safe("scr_vars.kpv", "spider_functions")
-            except:
-                spider_functions = {"function": "print", "input": "Warning: function not given to docrawl",
-                                    "done": False}
-                spider_functions = VarSafe(spider_functions, "spider_functions", "spider_functions")
+            spider_requests = self._load_request()
+            spider_functions = self._load_function()
+
+            self.browser_meta_data['last_function'] = spider_functions
             try:
                 time.sleep(1)
                 docrawl_logger.info('Docrawl core loop')
+                docrawl_logger.warning(f'Browser meta data: {self.browser_meta_data}')
                 docrawl_logger.info(f'Spider functions: {spider_functions}')
 
                 if not spider_requests['loaded']:
                     self.browser.get(spider_requests['url'])
+                    self.browser_meta_data['current_page'] = self.browser.current_url
                     page = Selector(text=self.browser.page_source)
 
                     spider_requests['loaded'] = True
