@@ -34,8 +34,9 @@ class DocrawlLogger:
 
     def _print_message(self, message, color):
         time = f"{datetime.now():'%H:%M:%S'}"
+        prefix = f'{time} [DOCRAWL] -'
 
-        print(f'{color}{time} {message} {ConsoleColors.CEND}')
+        print(f'{color}{prefix} {message} {ConsoleColors.CEND}')
 
     def info(self, message: str):
         color = self._map_log_level_to_color('info')
