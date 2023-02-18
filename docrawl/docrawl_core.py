@@ -82,7 +82,7 @@ def take_screenshot(browser, page, inp):
         :param inp, list, inputs from launcher (filename)
     """
 
-    filename = inp[0]
+    filename = inp['filename']
     '''
     try:
         root_element = browser.find_element(By.XPATH, '/html')
@@ -130,7 +130,7 @@ def extract_page_source(browser, page, inp):
         :param inp: list, inputs from launcher (incl_tables, incl_bullets, output_dir)
     """
 
-    filename = inp[0]
+    filename = inp['filename']
 
     with open(filename, 'w+', encoding="utf-8") as f:
         f.write(browser.page_source)
@@ -144,16 +144,16 @@ def scan_web_page(browser, page, inp):
         :param browser: webdriver, browser instance
     """
 
-    incl_tables = inp[0]
-    incl_bullets = inp[1]
-    incl_texts = inp[2]
-    incl_headlines = inp[3]
-    incl_links = inp[4]
-    incl_images = inp[5]
-    incl_buttons = inp[6]
-    by_xpath = inp[7]
-    context_xpath = inp[8]
-    output_folder = inp[9]
+    incl_tables = inp['incl_tables']
+    incl_bullets = inp['incl_bullets']
+    incl_texts = inp['incl_texts']
+    incl_headlines = inp['incl_headlines']
+    incl_links = inp['incl_links']
+    incl_images = inp['incl_images']
+    incl_buttons = inp['incl_buttons']
+    by_xpath = inp['by_xpath']
+    context_xpath = inp['context_xpath']
+    output_folder = inp['output_folder']
 
     # Predefined tags by type
     TABLE_TAG = ['table']
@@ -546,7 +546,7 @@ def wait_until_element_is_located(browser, page, inp):
     Note: click() method may be replaced with another
     """
 
-    xpath = inp[0]
+    xpath = inp['xpath']
 
     try:
         WebDriverWait(browser, 5).until(EC.element_to_be_clickable((By.XPATH, xpath))).click()
@@ -561,7 +561,7 @@ def get_current_url(browser, page, inp):
         :param inp: list, inputs from launcher (filename)
     """
 
-    filename = inp[0]
+    filename = inp['filename']
     url = str(browser.current_url)
 
     try:
@@ -604,9 +604,9 @@ def scroll_web_page(browser, page, inp):
         :param inp: list, inputs from launcher (scroll_to, scroll_by, scroll_max)
     """
 
-    scroll_to = inp[0]
-    scroll_by = inp[1]
-    scroll_max = inp[2]
+    scroll_to = inp['scroll_to']
+    scroll_by = inp['scroll_by']
+    scroll_max = inp['scroll_max']
 
     script = ''
 
@@ -640,8 +640,8 @@ def download_images(browser, page, inp):
         :param inp: list, inputs from launcher (image xpath, filename)
     """
 
-    image_xpath = inp[0]
-    filename = inp[1]
+    image_xpath = inp['image_xpath']
+    filename = inp['filename']
     headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; WOW64; rv:50.0) Gecko/20100101 Firefox/50.0'}
 
     # If entered filename contains extension -> drop extension
@@ -689,7 +689,7 @@ def download_images(browser, page, inp):
 
 
 def click_xpath(browser, page, inp):
-    xpath = inp[0]
+    xpath = inp['xpath']
 
     print('SEARCHING FOR ELEMENT')
     element = browser.find_element(By.XPATH, xpath)
@@ -702,12 +702,19 @@ def click_xpath(browser, page, inp):
         browser.execute_script("arguments[0].removeAttribute('disabled','disabled')", element)
         element.click()
 
+
+def click_name(browser, page, inp):
+    text = inp['text']
+
+    browser.find_element_by_link_text(text).click()
+
+
 def extract_xpath(browser, page, inp):
     """
     write_in_file_mode ... w+, a+
     """
-    xpath = inp[0]
-    filename = inp[1]  # "extracted_data.txt"
+    xpath = inp['xpath']
+    filename = inp['filename']  # "extracted_data.txt"
 
     if not xpath.endswith('/text()') and not '@' in xpath.split('/')[-1]:
         xpath += '/text()'
@@ -717,7 +724,7 @@ def extract_xpath(browser, page, inp):
         xpath += '/@href'
 
     try:
-        write_in_file_mode = inp[2]
+        write_in_file_mode = inp['write_in_file_mode']
     except:
         write_in_file_mode = "w+"
 
@@ -743,8 +750,8 @@ def extract_xpath(browser, page, inp):
 def extract_multiple_xpaths(browser, page, inp):
     print("PAGE", page, "INP", inp)
     result = []
-    xpaths = inp[0]
-    filename = inp[1]  # "extracted_data.txt"
+    xpaths = inp['xpaths']
+    filename = inp['filename']  # "extracted_data.txt"
     for i, xpath in enumerate(xpaths):
         data = page.xpath(xpath).extract()
         print("data", data)
@@ -762,10 +769,10 @@ def extract_multiple_xpaths(browser, page, inp):
 
 
 def extract_table_xpath(browser, page, inp):
-    row_xpath = inp[0]
-    column_xpath = inp[1]
-    filename = inp[2]  # "extracted_data.txt"
-    first_row_header = inp[3]
+    row_xpath = inp['xpath_row']
+    column_xpath = inp['xpath_col']
+    filename = inp['filename']  # "extracted_data.txt"
+    first_row_header = inp['first_row_header']
 
     result = []
     trs = page.xpath(row_xpath)
@@ -1058,6 +1065,7 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
 
 
 FUNCTIONS = {"click_xpath": click_xpath,
+             "click_name": click_name,
              "extract_xpath": extract_xpath,
              "extract_multiple_xpaths": extract_multiple_xpaths,
              "extract_table_xpath": extract_table_xpath,
