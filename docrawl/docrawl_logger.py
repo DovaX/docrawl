@@ -7,10 +7,10 @@ class ConsoleColors(Enum):
     Enum for colored output in console.
     """
 
-    CEND = '\33[0m'
-    CRED = '\33[31m'
-    CGREEN = '\33[32m'
-    CYELLOW = '\33[33m'
+    CEND = '\033[0m'
+    CRED = '\033[31m'
+    CGREEN = '\033[92m'
+    CYELLOW = '\033[93m'
     CWHITE = '\033[0m'
 
     def __str__(self):
