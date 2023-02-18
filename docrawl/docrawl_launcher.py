@@ -179,7 +179,7 @@ def click_xpath(xpath):
         'xpath': xpath
     }
 
-    run_function('extract_table_xpath', inp)
+    run_function('click_xpath', inp)
 
 
 def click_name(text):
