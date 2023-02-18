@@ -21,40 +21,28 @@ class DocrawlLogger:
     def __init__(self):
         pass
 
-    def _map_log_level_to_color(self, log_level: str):
-        mapping_dict = {
-            'info': ConsoleColors.CWHITE,
-            'warning': ConsoleColors.CYELLOW,
-            'success': ConsoleColors.CGREEN,
-            'error': ConsoleColors.CRED,
-        }
-
-        color = mapping_dict[log_level]
-
-        return color
-
     def _print_message(self, message, color):
         prefix = f'{datetime.now().strftime("%H:%M:%S")} [DOCRAWL]'
 
         print(f'{color}{prefix} {message} {ConsoleColors.CEND}')
 
     def info(self, message: str):
-        color = self._map_log_level_to_color('info')
+        color = ConsoleColors.CWHITE
 
         self._print_message(message, color)
 
     def success(self, message: str):
-        color = self._map_log_level_to_color('success')
+        color = ConsoleColors.CGREEN
 
         self._print_message(message, color)
 
     def warning(self, message: str):
-        color = self._map_log_level_to_color('warning')
+        color = ConsoleColors.CYELLOW
 
         self._print_message(message, color)
 
     def error(self, message: str):
-        color = self._map_log_level_to_color('error')
+        color = ConsoleColors.CRED
 
         self._print_message(message, color)
 
