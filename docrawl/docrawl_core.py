@@ -987,7 +987,7 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                     spider_requests = VarSafe(spider_requests, "spider_requests", "spider_requests")
                     save_variables(kept_variables, "scr_vars.kpv")
 
-                if spider_functions['done'] == False:
+                if not spider_functions['done']:
                     function_str = spider_functions['function']
                     function = eval(function_str)
 
