@@ -38,6 +38,8 @@ import lxml.html
 keyboard = pynput.keyboard.Controller()
 key = pynput.keyboard.Key
 
+from docrawl_logger import docrawl_logger
+
 from scrapy.selector import Selector
 from keepvariable.keepvariable_core import VarSafe, kept_variables, save_variables, load_variable_safe
 import pandas as pd
