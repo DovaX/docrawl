@@ -6,6 +6,16 @@
 import datetime
 import platform
 import scrapy
+import requests
+import time
+import pynput.keyboard
+import pickle
+import os
+import shutil
+import re
+import psutil
+import lxml.html
+import pandas as pd
 
 # Due to the problems with selenium wire on linux systems
 try:
@@ -21,28 +31,18 @@ from selenium.webdriver import FirefoxOptions, ChromeOptions
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.firefox.service import Service
+
 from webdriver_manager.firefox import GeckoDriverManager
 from webdriver_manager.chrome import ChromeDriverManager
-import urllib.request
-import requests
-import time
-import pynput.keyboard
-import pickle
-import os
-import shutil
-import re
-import psutil
 
-import lxml.html
+from scrapy.selector import Selector
+from keepvariable.keepvariable_core import VarSafe, kept_variables, save_variables, load_variable_safe
+from docrawl_logger import docrawl_logger
+
 
 keyboard = pynput.keyboard.Controller()
 key = pynput.keyboard.Key
 
-from docrawl_logger import docrawl_logger
-
-from scrapy.selector import Selector
-from keepvariable.keepvariable_core import VarSafe, kept_variables, save_variables, load_variable_safe
-import pandas as pd
 
 spider_requests = {"url": "www.forloop.ai", "loaded": True}
 
@@ -983,7 +983,7 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
 
             browser_pid = VarSafe(browser_pid, "browser_pid", "browser_pid")
             save_variables(kept_variables, "scr_vars.kpv")
-            print(browser_pid)
+            docrawl_logger.success(f'Browser PID: {browser_pid}')
         except Exception as e:
             print(e)
 
