@@ -50,7 +50,6 @@ spider_requests = {"url": "www.forloop.ai", "loaded": True}
 spider_functions = {"function": "print", "input": "Bla", "done": False}
 spider_functions = VarSafe(spider_functions, "spider_functions", "spider_functions")
 
-browser_pid = None
 docrawl_core_done = False
 
 
@@ -802,7 +801,8 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
 
         self.browser_meta_data = {
             'driver': self.driver_type,
-            'headless': self.bool_scrape_in_browser
+            'headless': self.bool_scrape_in_browser,
+            'browser_pid': self.browser_pid
         }
 
         self.start_requests()
@@ -867,6 +867,8 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
         window_size_x = 1820
 
         self.browser.set_window_size(window_size_x, 980)
+
+        self._determine_browser_pid()
 
         return self.browser
 
@@ -935,6 +937,22 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
 
         return spider_requests
 
+    def _determine_browser_pid(self):
+        self.browser_pid = None
+        try:
+            if self.driver_type == 'Firefox':
+                self.browser_pid = self.browser.capabilities['moz:processID']
+            elif self.driver_type == 'Chrome':
+                self.browser.service.process
+                browser_pid = psutil.Process(self.browser.service.process.pid)
+                self.browser_pid = browser_pid.pid
+
+            self.browser_pid = VarSafe(self.browser_pid, "browser_pid", "browser_pid")
+            save_variables(kept_variables, "scr_vars.kpv")
+            docrawl_logger.success(f'Browser PID: {self.browser_pid}')
+        except Exception as e:
+            docrawl_logger.error(f'Error while determining browser PID: {e}')
+
     def start_requests(self):
         URLS = ['https://www.forloop.ai']
         FUNCTIONS = [self.parse]
@@ -944,22 +962,6 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
     def parse(self, response):
         global spider_functions
         global docrawl_core_done
-        global browser_pid
-
-        try:
-            if self.driver_type == 'Firefox':
-                browser_pid = self.browser.capabilities['moz:processID']
-            elif self.driver_type == 'Chrome':
-                self.browser.service.process
-                browser_pid = psutil.Process(self.browser.service.process.pid)
-                browser_pid = browser_pid.pid
-
-            browser_pid = VarSafe(browser_pid, "browser_pid", "browser_pid")
-            save_variables(kept_variables, "scr_vars.kpv")
-            docrawl_logger.success(f'Browser PID: {browser_pid}')
-            self.browser_meta_data['browser_pid'] = browser_pid
-        except Exception as e:
-            docrawl_logger.error(f'Error while determining browser PID: {e}')
 
         self.browser.get(response.url)
         self.browser_meta_data['current_page'] = self.browser.current_url
