@@ -67,14 +67,6 @@ else:
 LOGIN = False
 
 
-def print_special(inp):
-    """prints and saves the output to kv.kept_variables"""
-    print(inp)
-    inp = VarSafe(inp, "inp", "inp")
-
-    save_variables({"inp": inp}, filename="input.kpv")
-
-
 def take_screenshot(browser, page, inp):
     """
     Takes screenshot of current page and saves it.
@@ -83,15 +75,7 @@ def take_screenshot(browser, page, inp):
     """
 
     filename = inp['filename']
-    '''
-    try:
-        root_element = browser.find_element(By.XPATH, '/html')
-        browser.save_full_page_screenshot(filename)
 
-        browser.execute_script("return arguments[0].scrollIntoView(true);", root_element)
-    except Exception as e:
-        print('Error while taking page screenshot!', e)
-    '''
     if type(browser) == webdriver.Firefox:
 
         try:
@@ -444,36 +428,6 @@ def scan_web_page(browser, page, inp):
 
         return xpath
 
-    def generate_XPath(childElement, current):
-        """
-        [OLD FUNCTION, NOT USED NOW -> TO BE DEPRECATED] Generates XPath of Selenium object.
-         Recursive function.
-            :param childElement: Selenium Selector
-            :param current: string, current XPath
-            :return - XPath
-        """
-
-        childTag = childElement.tag_name
-
-        if childTag == 'html':
-            return '/html[1]' + current
-
-        parentElement = childElement.find_element(By.XPATH, '..')
-        childrenElements = parentElement.find_elements(By.XPATH, '*')
-
-        count = 0
-
-        for childrenElement in childrenElements:
-            childrenElementTag = childrenElement.tag_name
-
-            if childTag == childrenElementTag:
-                count += 1
-
-            if childElement == childrenElement:
-                return generate_XPath(parentElement, f'/{childTag}[{count}]{current}')
-
-        return None
-
     ##### TABLES SECTION #####
     if incl_tables:
         find_elements(TABLE_TAG, 'table')
@@ -736,15 +690,12 @@ def extract_xpath(browser, page, inp):
     with open(filename, write_in_file_mode, encoding="utf-8") as f:
         if isinstance(data, list):
             for i, row in enumerate(data):
-                # print("B",i,row)
                 row = row.strip()
 
                 if row:
                     f.write(row.strip() + "\n")
         else:
             f.write(data.strip())
-        # print("C")
-    # print(data)
 
 
 def extract_multiple_xpaths(browser, page, inp):
@@ -834,16 +785,6 @@ def extract_table_xpath(browser, page, inp):
     with open(filename, 'wb') as pickle_file:
         pickle.dump(df, pickle_file)
 
-    # data = result
-
-    # print("DATA", data)
-    # with open(filename, "w+", encoding="utf-8") as f:
-    # pass
-    # for i,row in enumerate(data):
-    # print("B",i,row)
-    # f.write(row+"\n")
-    # print("C")
-    # print(data)
 
 
 class DocrawlSpider(scrapy.spiders.CrawlSpider):
