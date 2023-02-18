@@ -856,6 +856,16 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
         # can be replaced for debugging with browser = webdriver.FireFox()
         # self.browser = webdriver.PhantomJS(executable_path=PHANTOMJS_PATH, service_args=['--ignore-ssl-errors=true'])
 
+        self.browser = self._initialise_browser()
+
+        self.browser_meta_data = {
+            'driver': self.driver_type,
+            'headless': self.bool_scrape_in_browser
+        }
+
+        self.start_requests()
+
+    def _initialise_browser(self):
         try:
             self.driver_type = load_variable_safe('scr_vars.kpv', 'browser')['driver']
         except Exception as e:
@@ -863,10 +873,10 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
             self.driver_type = 'Firefox'
 
         try:
-            bool_scrape_in_browser = load_variable_safe('scr_vars.kpv', 'browser')['in_browser']
+            self.bool_scrape_in_browser = load_variable_safe('scr_vars.kpv', 'browser')['in_browser']
         except Exception as e:
             print('Error while loading headless mode information: ', e)
-            bool_scrape_in_browser = True
+            self.bool_scrape_in_browser = True
 
         try:
             proxy_info = load_variable_safe('scr_vars.kpv', 'proxy')
@@ -881,7 +891,7 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
 
             sw_options = self._set_proxy(proxy_info)
 
-            if not bool_scrape_in_browser:
+            if not self.bool_scrape_in_browser:
                 self.options.add_argument("--headless")
 
                 # For headless mode different width of window is needed
@@ -900,7 +910,7 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
 
             sw_options = self._set_proxy(proxy_info)
 
-            if not bool_scrape_in_browser:
+            if not self.bool_scrape_in_browser:
                 self.options.add_argument("--headless")
 
                 # For headless mode different width of window is needed
@@ -915,7 +925,8 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
         window_size_x = 1820
 
         self.browser.set_window_size(window_size_x, 980)
-        self.start_requests()
+
+        return self.browser
 
     def __del__(self):
         self.browser.quit()
@@ -971,9 +982,10 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
 
     def parse(self, response):
         global spider_functions
-        try:
-            global browser_pid
+        global docrawl_core_done
+        global browser_pid
 
+        try:
             if self.driver_type == 'Firefox':
                 browser_pid = self.browser.capabilities['moz:processID']
             elif self.driver_type == 'Chrome':
@@ -984,11 +996,13 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
             browser_pid = VarSafe(browser_pid, "browser_pid", "browser_pid")
             save_variables(kept_variables, "scr_vars.kpv")
             docrawl_logger.success(f'Browser PID: {browser_pid}')
+            self.browser_meta_data['browser_pid'] = browser_pid
         except Exception as e:
             print(e)
 
         self.browser.get(response.url)
-        global docrawl_core_done
+        self.browser_meta_data['current_page'] = response.url
+
         docrawl_core_done = False
         page = Selector(text=self.browser.page_source)
 
@@ -1022,7 +1036,6 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                     save_variables(kept_variables, "scr_vars.kpv")
 
                 if spider_functions['done'] == False:
-
                     function_str = spider_functions['function']
                     function = eval(function_str)
 
