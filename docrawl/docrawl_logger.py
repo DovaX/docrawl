@@ -1,6 +1,7 @@
 from enum import Enum
 from datetime import datetime
 
+
 class ConsoleColors(Enum):
     """
     Enum for colored output in console.
@@ -33,8 +34,7 @@ class DocrawlLogger:
         return color
 
     def _print_message(self, message, color):
-        time = f"{datetime.now():'%H:%M:%S'}"
-        prefix = f'{time} [DOCRAWL] -'
+        prefix = f'{datetime.now().strftime("%H:%M:%S")} [DOCRAWL]'
 
         print(f'{color}{prefix} {message} {ConsoleColors.CEND}')
 
