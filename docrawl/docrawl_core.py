@@ -3,6 +3,8 @@
 #    sys.path.append("C:\\Users\\EUROCOM\\Documents\\Git\\DovaX")
 # except:
 #    pass
+from docrawl_logger import docrawl_logger
+
 import datetime
 import platform
 import scrapy
@@ -21,7 +23,7 @@ import pandas as pd
 try:
     from selenium import webdriver
 except:
-    print('Error while importing selenium-wire, using selenium instead')
+    docrawl_logger.error('Error while importing selenium-wire, using selenium instead')
     from selenium import webdriver
 
 from selenium.webdriver.common.by import By
@@ -37,7 +39,6 @@ from webdriver_manager.chrome import ChromeDriverManager
 
 from scrapy.selector import Selector
 from keepvariable.keepvariable_core import VarSafe, kept_variables, save_variables, load_variable_safe
-from docrawl_logger import docrawl_logger
 
 
 keyboard = pynput.keyboard.Controller()
@@ -86,7 +87,7 @@ def take_screenshot(browser, page, inp):
             with open(filename, "w+") as fh:
                 fh.write(string)
         except Exception as e:
-            print('Error while taking page screenshot!', e)
+            docrawl_logger.error(f'Error while taking page screenshot: {e}')
 
     elif type(browser) == webdriver.Chrome:
         # Get params needed for fullpage screenshot
@@ -488,7 +489,7 @@ def scan_web_page(browser, page, inp):
 
     save_coordinates_of_elements(selectors, names, xpaths, data)
 
-    print('[TIME] WHOLE FUNCTION ------>', timedelta_format(datetime.datetime.now(), time_start_f))
+    docrawl_logger.info(f'Scan WEb Page function duration {timedelta_format(datetime.datetime.now(), time_start_f)}')
 
 
 def wait_until_element_is_located(browser, page, inp):
@@ -505,7 +506,7 @@ def wait_until_element_is_located(browser, page, inp):
     try:
         WebDriverWait(browser, 5).until(EC.element_to_be_clickable((By.XPATH, xpath))).click()
     except Exception as e:
-        print('Error while locating element', e)
+        docrawl_logger.error(f'Error while locating element: {e}')
 
 
 def get_current_url(browser, page, inp):
@@ -521,8 +522,8 @@ def get_current_url(browser, page, inp):
     try:
         with open(filename, 'w+', encoding="utf-8") as f:
             f.write(url)
-    except Exception:
-        print('Error while getting current URL!')
+    except Exception as e:
+        docrawl_logger.error(f'Error while getting current URL: {e}')
 
 
 def close_browser(browser, page, inp):
@@ -547,8 +548,8 @@ def close_browser(browser, page, inp):
 
     except ConnectionRefusedError:
         pass
-    except Exception:
-        print('Error while closing the browser!')
+    except Exception as e:
+        docrawl_logger.error(f'Error while closing the browser: {e}')
 
 
 def scroll_web_page(browser, page, inp):
@@ -645,14 +646,14 @@ def download_images(browser, page, inp):
 def click_xpath(browser, page, inp):
     xpath = inp['xpath']
 
-    print('SEARCHING FOR ELEMENT')
+    docrawl_logger.info('Searching for element to click')
     element = browser.find_element(By.XPATH, xpath)
 
     if element.is_enabled():
-        print('BUTTON IS ENABLED')
+        docrawl_logger.info('Button is enabled')
         element.click()
     else:
-        print('BUTTON IS NOT ENABLED, ENABLING IT')
+        docrawl_logger.warning('Button is not enabled, trying to enable it')
         browser.execute_script("arguments[0].removeAttribute('disabled','disabled')", element)
         element.click()
 
@@ -699,22 +700,19 @@ def extract_xpath(browser, page, inp):
 
 
 def extract_multiple_xpaths(browser, page, inp):
-    print("PAGE", page, "INP", inp)
     result = []
     xpaths = inp['xpaths']
     filename = inp['filename']  # "extracted_data.txt"
+
     for i, xpath in enumerate(xpaths):
         data = page.xpath(xpath).extract()
-        print("data", data)
+        docrawl_logger.info(f'Data from extracted XPath: {data}')
         result.append(data)
 
     short_filename = filename.split(".txt")[0]
     df = pd.DataFrame(result)
     df.to_excel(short_filename + ".xlsx")
 
-    data = result
-
-    print("DATA", data)
     with open(filename, "w+", encoding="utf-8") as f:
         pass
 
@@ -757,8 +755,6 @@ def extract_table_xpath(browser, page, inp):
 
             # details = page.xpath(xp).extract() #j+1 because xpath indices start with 1 (not with 0)
 
-            # print(j, details)
-
             # If first row should be headers and headers were not defined before
             if first_row_header and not headers:
                 headers = row
@@ -768,8 +764,6 @@ def extract_table_xpath(browser, page, inp):
     short_filename = filename.split(".pickle")[0]
 
     if headers:
-        # print('HEADERS', headers)
-
         # Could be the situation when len of headers is not the same as len of row
         try:
             df = pd.DataFrame(result, columns=headers)
@@ -817,19 +811,19 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
         try:
             self.driver_type = load_variable_safe('scr_vars.kpv', 'browser')['driver']
         except Exception as e:
-            print('Error while loading driver type information: ', e)
+            docrawl_logger.error(f'Error while loading driver type information: {e}')
             self.driver_type = 'Firefox'
 
         try:
             self.bool_scrape_in_browser = load_variable_safe('scr_vars.kpv', 'browser')['in_browser']
         except Exception as e:
-            print('Error while loading headless mode information: ', e)
+            docrawl_logger.error(f'Error while loading headless mode information: {e}')
             self.bool_scrape_in_browser = True
 
         try:
             proxy_info = load_variable_safe('scr_vars.kpv', 'proxy')
         except Exception as e:
-            print('Error while loading proxy information: ', e)
+            docrawl_logger.error(f'Error while loading proxy information: {e}')
             proxy_info = None
 
         if self.driver_type == 'Firefox':
@@ -849,7 +843,7 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                 self.browser = webdriver.Firefox(options=self.options, capabilities=capabilities,
                                                  service=Service(GeckoDriverManager().install()))
             except Exception as e:
-                print(f'ERROR WHILE CREATING FIREFOX INSTANCE {e}')
+                docrawl_logger.error(f'Error while creating Firefox instance {e}')
                 self.browser = webdriver.Firefox(options=self.options, capabilities=capabilities)
 
         elif self.driver_type == 'Chrome':
@@ -946,7 +940,7 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
             docrawl_logger.success(f'Browser PID: {browser_pid}')
             self.browser_meta_data['browser_pid'] = browser_pid
         except Exception as e:
-            print(e)
+            docrawl_logger.error(f'Error while determining browser PID: {e}')
 
         self.browser.get(response.url)
         self.browser_meta_data['current_page'] = response.url
@@ -957,11 +951,9 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
         while not docrawl_core_done:
             try:
                 spider_requests = load_variable_safe("scr_vars.kpv", "spider_requests")
-                # print("LOADED REQUESTS",spider_requests)
             except Exception as e:
                 spider_requests = {"url": "www.forloop.ai", "loaded": True}
                 spider_requests = VarSafe(spider_requests, "spider_requests", "spider_requests")
-                # print("LOADED REQUESTS - EXCEPTION",e)
             try:
                 spider_functions = load_variable_safe("scr_vars.kpv", "spider_functions")
             except:
@@ -970,17 +962,15 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                 spider_functions = VarSafe(spider_functions, "spider_functions", "spider_functions")
             try:
                 time.sleep(1)
-                print("Docrawl core loop")
-                print(spider_functions)
+                docrawl_logger.info('Docrawl core loop')
+                docrawl_logger.info(f'Spider functions: {spider_functions}')
 
                 if not spider_requests['loaded']:
-                    # print(spider_requests['url'])
                     self.browser.get(spider_requests['url'])
                     page = Selector(text=self.browser.page_source)
 
                     spider_requests['loaded'] = True
                     spider_requests = VarSafe(spider_requests, "spider_requests", "spider_requests")
-                    # print(spider_requests['loaded'],"spider_requests")
                     save_variables(kept_variables, "scr_vars.kpv")
 
                 if spider_functions['done'] == False:
@@ -988,10 +978,9 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                     function = eval(function_str)
 
                     inp = spider_functions['input']
-                    print('INP FROM DOCRAWL CORE', inp)
+                    docrawl_logger.info(f'Function input from docrawl core: {inp}')
 
                     if function_str in FUNCTIONS.keys():
-                        print(function_str.replace('_', ' ').upper())
                         FUNCTIONS[function_str](browser=self.browser, page=page, inp=inp)
                     else:
                         function(inp)

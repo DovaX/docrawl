@@ -12,7 +12,7 @@ def load_website(url):
 
     spider_requests = {"url": url, "loaded": False}
     spider_requests = kv.VarSafe(spider_requests, "spider_requests", "spider_requests")
-    print("SPIDER_REQUESTS", spider_requests)
+    docrawl_logger.info(f"SPIDER_REQUESTS: {spider_requests}")
     kv.save_variables(kv.kept_variables, "scr_vars.kpv")
 
     # docrawl_core.spider_requests={"url":url,"loaded":False}
