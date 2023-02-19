@@ -10,7 +10,6 @@ import platform
 import scrapy
 import requests
 import time
-import pynput.keyboard
 import pickle
 import os
 import shutil
@@ -41,30 +40,11 @@ from scrapy.selector import Selector
 from keepvariable.keepvariable_core import VarSafe, kept_variables, save_variables, load_variable_safe
 
 
-# keyboard = pynput.keyboard.Controller()
-# key = pynput.keyboard.Key
-
-
-# spider_requests = {"url": "www.forloop.ai", "loaded": True}
-#
-# spider_functions = {"function": "print", "input": "Bla", "done": False}
-# spider_functions = VarSafe(spider_functions, "spider_functions", "spider_functions")
-#
-# docrawl_core_done = False
-
-
 def click_class(browser, class_input, index=0, tag="div", wait1=1):
     name_input = browser.find_elements_by_xpath('//' + tag + '[@class="' + class_input + '"]')
     name_input[index].click()
     time.sleep(wait1)
     return (name_input)
-
-
-if platform.system() == 'Windows':
-    PHANTOMJS_PATH = './phantomjs/bin/phantomjs.exe'
-else:
-    PHANTOMJS_PATH = './phantomjs/bin/phantomjs'
-LOGIN = False
 
 
 def take_screenshot(browser, page, inp):
@@ -1023,9 +1003,6 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
             yield scrapy.Request(url=URLS[i], callback=FUNCTIONS[i])  # yield
 
     def parse(self, response):
-        # global spider_functions
-        # global docrawl_core_done
-
         self.browser.get(response.url)
 
         docrawl_core_done = False
