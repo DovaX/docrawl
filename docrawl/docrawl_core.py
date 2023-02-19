@@ -4,9 +4,8 @@
 # except:
 #    pass
 from docrawl_logger import docrawl_logger
-
+from collections import UserDict
 import datetime
-import platform
 import scrapy
 import requests
 import time
@@ -759,84 +758,40 @@ def extract_table_xpath(browser, page, inp):
         pickle.dump(df, pickle_file)
 
 
-class BrowserMetaData:
+class BrowserMetaData(UserDict):
+    def __init__(self, kpv_file: str = 'browser_meta_data.kpv'):
+        super().__init__()
 
-    def __init__(self):
-        browser_meta_data = {
-            'browser': {'driver': 'Firefox', 'headless': True, 'browser_pid': 0},
-            'proxy': None,
-            'request': {"url": "www.forloop.ai", "loaded": True},
-            'function': {'name': 'extract_xpath', 'input': {'xpath': '/html/main/div[4]/span'}, 'done': True}
-        }
-
-        self.meta_data = dict()
-        self._set_init_value()
+        self.kpv_file = kpv_file
+        self._set_init_values()
 
     def __str__(self):
-        return f"BLA BLA {self.meta_data}"
+        elements_order = ['browser', 'proxy', 'request', 'function']
+        ordered_dict = dict()
 
-    def _set_init_value(self):
+        for elem in elements_order:
+            ordered_dict[elem] = self.data.get(elem)
+
+        return str(ordered_dict)
+
+    def _set_init_values(self):
         init_function = {"name": "print", "input": "Bla", "done": False}
+        self.__setitem__('function', init_function)
 
-        self.function_info = init_function
+    def __setitem__(self, key, value):
+        VarSafe(value, key, key)
+        save_variables(kept_variables, self.kpv_file)
+        super().__setitem__(key, value)
 
-    @property
-    def browser_info(self):
+    def __getitem__(self, key):
         try:
-            browser = load_variable_safe("browser_meta_data.kpv", "browser")
+            value = load_variable_safe(self.kpv_file, key)
         except Exception as e:
-            browser = {'driver': 'Firefox', 'headless': True, 'browser_pid': 0},
-            browser = VarSafe(browser, "browser", "browser")
+            value = None
 
-        docrawl_logger.warning(f'Browser info: {browser}')
+        self.__setitem__(key, value)
 
-        return browser
-
-    @browser_info.setter
-    def browser_info(self, browser):
-        self.meta_data['browser'] = browser
-
-        browser = VarSafe(self.meta_data['browser'], "browser", "browser")
-        save_variables(kept_variables, "browser_meta_data.kpv")
-
-    @property
-    def request_info(self):
-        try:
-            request = load_variable_safe("browser_meta_data.kpv", "request")
-        except Exception as e:
-            request = {"url": "www.forloop.ai", "loaded": True}
-            request = VarSafe(request, "request", "request")
-
-        docrawl_logger.warning(f'Browser request: {request}')
-
-        return request
-
-    @request_info.setter
-    def request_info(self, request):
-        self.meta_data['request'] = request
-
-        request = VarSafe(self.meta_data['request'], "request", "request")
-        save_variables(kept_variables, "browser_meta_data.kpv")
-
-    @property
-    def function_info(self):
-        try:
-            function = load_variable_safe("browser_meta_data.kpv", "function")
-        except Exception as e:
-            function = {"name": "print", "input": "Bla", "done": False}
-            function = VarSafe(function, "function", "function")
-
-        docrawl_logger.warning(f'Browser function: {function}')
-
-        return function
-
-    @function_info.setter
-    def function_info(self, function):
-        self.meta_data['function'] = function
-
-        function = VarSafe(self.meta_data['function'], "function", "function")
-        save_variables(kept_variables, "browser_meta_data.kpv")
-
+        return self.data[key]
 
 
 class DocrawlSpider(scrapy.spiders.CrawlSpider):
@@ -856,7 +811,7 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
         # can be replaced for debugging with browser = webdriver.FireFox()
         # self.browser = webdriver.PhantomJS(executable_path=PHANTOMJS_PATH, service_args=['--ignore-ssl-errors=true'])
         self.meta_data = BrowserMetaData()
-        docrawl_logger.warning(f'BROWSER METADATA {str(self.meta_data)}')
+
         self.browser = self._initialise_browser()
 
         browser_info = {
@@ -865,25 +820,25 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
             'browser_pid': self.browser_pid
         }
 
-        self.meta_data.browser_info = browser_info
+        self.meta_data['browser'] = browser_info
 
         self.start_requests()
 
     def _initialise_browser(self):
         try:
-            self.driver_type = load_variable_safe('browser_meta_data.kpv', 'browser')['driver']
+            self.driver_type = self.meta_data['browser']['driver']
         except Exception as e:
             docrawl_logger.error(f'Error while loading driver type information: {e}')
             self.driver_type = 'Firefox'
 
         try:
-            self.headless = load_variable_safe('browser_meta_data.kpv', 'browser')['headless']
+            self.headless = self.meta_data['browser']['headless']
         except Exception as e:
             docrawl_logger.error(f'Error while loading headless mode information: {e}')
             self.headless = False
 
         try:
-            proxy_info = load_variable_safe('browser_meta_data.kpv', 'proxy')
+            proxy_info = self.meta_data['proxy']
         except Exception as e:
             docrawl_logger.error(f'Error while loading proxy information: {e}')
             proxy_info = None
@@ -1009,23 +964,22 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
         page = Selector(text=self.browser.page_source)
 
         while not docrawl_core_done:
-            spider_requests = self.meta_data.request_info
-            spider_functions = self.meta_data.function_info
+            spider_requests = self.meta_data['request']
+            spider_functions = self.meta_data['function']
 
             try:
                 time.sleep(1)
                 docrawl_logger.info('Docrawl core loop')
-                docrawl_logger.warning(f'Browser meta data: {self.meta_data}')
-                docrawl_logger.info(f'Spider functions: {spider_functions}')
-                docrawl_logger.info(f'Spider requests: {spider_requests}')
+                docrawl_logger.info(f'Browser meta data: {self.meta_data}')
+                docrawl_logger.info(f'Spider function: {spider_functions}')
+                docrawl_logger.info(f'Spider request: {spider_requests}')
 
                 if not spider_requests['loaded']:
-                    docrawl_logger.warning(spider_requests['url'])
                     self.browser.get(spider_requests['url'])
                     page = Selector(text=self.browser.page_source)
 
                     spider_requests['loaded'] = True
-                    self.meta_data.request_info = spider_requests
+                    self.meta_data['request'] = spider_requests
 
                 if not spider_functions['done']:
                     function_str = spider_functions['name']
@@ -1040,7 +994,7 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                         function(inp)
 
                     spider_functions['done'] = True
-                    self.meta_data.function_info = spider_functions
+                    self.meta_data['function'] = spider_functions
 
                 page = Selector(text=self.browser.page_source)
             except KeyboardInterrupt:

@@ -13,10 +13,7 @@ def load_website(url):
     spider_requests = {"url": url, "loaded": False}
 
     spider_requests = kv.VarSafe(spider_requests, "request", "request")
-    docrawl_logger.info(f"SPIDER_REQUESTS: {spider_requests}")
     kv.save_variables(kv.kept_variables, "browser_meta_data.kpv")
-
-    # docrawl_core.spider_requests={"url":url,"loaded":False}
 
 
 def take_screenshot(filename):
