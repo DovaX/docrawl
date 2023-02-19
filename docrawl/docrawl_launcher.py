@@ -11,9 +11,10 @@ def load_website(url):
         url = "http://" + url
 
     spider_requests = {"url": url, "loaded": False}
-    spider_requests = kv.VarSafe(spider_requests, "spider_requests", "spider_requests")
+
+    spider_requests = kv.VarSafe(spider_requests, "request", "request")
     docrawl_logger.info(f"SPIDER_REQUESTS: {spider_requests}")
-    kv.save_variables(kv.kept_variables, "scr_vars.kpv")
+    kv.save_variables(kv.kept_variables, "browser_meta_data.kpv")
 
     # docrawl_core.spider_requests={"url":url,"loaded":False}
 
@@ -83,7 +84,7 @@ def wait_until_element_is_located(xpath):
     """
 
     inp = {
-        'xpath': xpath
+        'xpath': xpath.kp
     }
 
     run_function('wait_until_element_is_located', inp)
@@ -194,9 +195,10 @@ def run_function(function, function_input):
     docrawl_logger.info(f'Running function {function}')
     docrawl_logger.info(f'Function input: {function_input}')
 
-    spider_functions = {"function": function, "input": function_input, "done": False}
-    spider_functions = kv.VarSafe(spider_functions, "spider_functions", "spider_functions")
-    kv.save_variables(kv.kept_variables, "scr_vars.kpv")
+    spider_functions = {"name": function, "input": function_input, "done": False}
+    spider_functions = kv.VarSafe(spider_functions, "function", "function")
+    kv.save_variables(kv.kept_variables, "browser_meta_data.kpv")
+
 
 
 def run_spider(number, in_browser=True, driver='Firefox'):
@@ -210,12 +212,14 @@ def run_spider(number, in_browser=True, driver='Firefox'):
             - in_browser=False -> add -headless to driver options
     """
 
+    headless = not in_browser
+
     setup()
     crawler = CrawlerRunner()
-    browser = {'in_browser': in_browser, 'driver': driver}
+    browser = {'headless': headless, 'driver': driver}
     browser = kv.VarSafe(browser, "browser", "browser")
 
-    kv.save_variables(kv.kept_variables, 'scr_vars.kpv')
+    kv.save_variables(kv.kept_variables, "browser_meta_data.kpv")
 
     time.sleep(1)
 

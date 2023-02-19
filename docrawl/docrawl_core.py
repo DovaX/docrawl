@@ -41,16 +41,16 @@ from scrapy.selector import Selector
 from keepvariable.keepvariable_core import VarSafe, kept_variables, save_variables, load_variable_safe
 
 
-keyboard = pynput.keyboard.Controller()
-key = pynput.keyboard.Key
+# keyboard = pynput.keyboard.Controller()
+# key = pynput.keyboard.Key
 
 
-spider_requests = {"url": "www.forloop.ai", "loaded": True}
-
-spider_functions = {"function": "print", "input": "Bla", "done": False}
-spider_functions = VarSafe(spider_functions, "spider_functions", "spider_functions")
-
-docrawl_core_done = False
+# spider_requests = {"url": "www.forloop.ai", "loaded": True}
+#
+# spider_functions = {"function": "print", "input": "Bla", "done": False}
+# spider_functions = VarSafe(spider_functions, "spider_functions", "spider_functions")
+#
+# docrawl_core_done = False
 
 
 def click_class(browser, class_input, index=0, tag="div", wait1=1):
@@ -543,7 +543,7 @@ def close_browser(browser, page, inp):
         proxy = {'ip': '', 'port': '', 'username': '', 'password': ''}
         proxy = VarSafe(proxy, "proxy", "proxy")
 
-        save_variables(kept_variables, 'scr_vars.kpv')
+        save_variables(kept_variables, 'browser_meta_data.kpv')
 
     except ConnectionRefusedError:
         pass
@@ -779,6 +779,85 @@ def extract_table_xpath(browser, page, inp):
         pickle.dump(df, pickle_file)
 
 
+class BrowserMetaData:
+
+    def __init__(self):
+        browser_meta_data = {
+            'browser': {'driver': 'Firefox', 'headless': True, 'browser_pid': 0},
+            'proxy': None,
+            'request': {"url": "www.forloop.ai", "loaded": True},
+            'function': {'name': 'extract_xpath', 'input': {'xpath': '/html/main/div[4]/span'}, 'done': True}
+        }
+
+        self.meta_data = dict()
+        self._set_init_value()
+
+    def __str__(self):
+        return f"BLA BLA {self.meta_data}"
+
+    def _set_init_value(self):
+        init_function = {"name": "print", "input": "Bla", "done": False}
+
+        self.function_info = init_function
+
+    @property
+    def browser_info(self):
+        try:
+            browser = load_variable_safe("browser_meta_data.kpv", "browser")
+        except Exception as e:
+            browser = {'driver': 'Firefox', 'headless': True, 'browser_pid': 0},
+            browser = VarSafe(browser, "browser", "browser")
+
+        docrawl_logger.warning(f'Browser info: {browser}')
+
+        return browser
+
+    @browser_info.setter
+    def browser_info(self, browser):
+        self.meta_data['browser'] = browser
+
+        browser = VarSafe(self.meta_data['browser'], "browser", "browser")
+        save_variables(kept_variables, "browser_meta_data.kpv")
+
+    @property
+    def request_info(self):
+        try:
+            request = load_variable_safe("browser_meta_data.kpv", "request")
+        except Exception as e:
+            request = {"url": "www.forloop.ai", "loaded": True}
+            request = VarSafe(request, "request", "request")
+
+        docrawl_logger.warning(f'Browser request: {request}')
+
+        return request
+
+    @request_info.setter
+    def request_info(self, request):
+        self.meta_data['request'] = request
+
+        request = VarSafe(self.meta_data['request'], "request", "request")
+        save_variables(kept_variables, "browser_meta_data.kpv")
+
+    @property
+    def function_info(self):
+        try:
+            function = load_variable_safe("browser_meta_data.kpv", "function")
+        except Exception as e:
+            function = {"name": "print", "input": "Bla", "done": False}
+            function = VarSafe(function, "function", "function")
+
+        docrawl_logger.warning(f'Browser function: {function}')
+
+        return function
+
+    @function_info.setter
+    def function_info(self, function):
+        self.meta_data['function'] = function
+
+        function = VarSafe(self.meta_data['function'], "function", "function")
+        save_variables(kept_variables, "browser_meta_data.kpv")
+
+
 
 class DocrawlSpider(scrapy.spiders.CrawlSpider):
     name = "forloop"
@@ -796,32 +875,35 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
     def __init__(self):
         # can be replaced for debugging with browser = webdriver.FireFox()
         # self.browser = webdriver.PhantomJS(executable_path=PHANTOMJS_PATH, service_args=['--ignore-ssl-errors=true'])
-
+        self.meta_data = BrowserMetaData()
+        docrawl_logger.warning(f'BROWSER METADATA {str(self.meta_data)}')
         self.browser = self._initialise_browser()
 
-        self.browser_meta_data = {
+        browser_info = {
             'driver': self.driver_type,
-            'headless': self.bool_scrape_in_browser,
+            'headless': self.headless,
             'browser_pid': self.browser_pid
         }
+
+        self.meta_data.browser_info = browser_info
 
         self.start_requests()
 
     def _initialise_browser(self):
         try:
-            self.driver_type = load_variable_safe('scr_vars.kpv', 'browser')['driver']
+            self.driver_type = load_variable_safe('browser_meta_data.kpv', 'browser')['driver']
         except Exception as e:
             docrawl_logger.error(f'Error while loading driver type information: {e}')
             self.driver_type = 'Firefox'
 
         try:
-            self.bool_scrape_in_browser = load_variable_safe('scr_vars.kpv', 'browser')['in_browser']
+            self.headless = load_variable_safe('browser_meta_data.kpv', 'browser')['headless']
         except Exception as e:
             docrawl_logger.error(f'Error while loading headless mode information: {e}')
-            self.bool_scrape_in_browser = True
+            self.headless = False
 
         try:
-            proxy_info = load_variable_safe('scr_vars.kpv', 'proxy')
+            proxy_info = load_variable_safe('browser_meta_data.kpv', 'proxy')
         except Exception as e:
             docrawl_logger.error(f'Error while loading proxy information: {e}')
             proxy_info = None
@@ -833,7 +915,7 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
 
             sw_options = self._set_proxy(proxy_info)
 
-            if not self.bool_scrape_in_browser:
+            if self.headless:
                 self.options.add_argument("--headless")
 
                 # For headless mode different width of window is needed
@@ -852,7 +934,7 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
 
             sw_options = self._set_proxy(proxy_info)
 
-            if not self.bool_scrape_in_browser:
+            if self.headless:
                 self.options.add_argument("--headless")
 
                 # For headless mode different width of window is needed
@@ -918,25 +1000,6 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
 
         return sw_options
 
-    def _load_function(self):
-        try:
-            spider_functions = load_variable_safe("scr_vars.kpv", "spider_functions")
-        except:
-            spider_functions = {"function": "print", "input": "Warning: function not given to docrawl",
-                                "done": False}
-            spider_functions = VarSafe(spider_functions, "spider_functions", "spider_functions")
-
-        return spider_functions
-
-    def _load_request(self):
-        try:
-            spider_requests = load_variable_safe("scr_vars.kpv", "spider_requests")
-        except Exception as e:
-            spider_requests = {"url": "www.forloop.ai", "loaded": True}
-            spider_requests = VarSafe(spider_requests, "spider_requests", "spider_requests")
-
-        return spider_requests
-
     def _determine_browser_pid(self):
         self.browser_pid = None
         try:
@@ -947,8 +1010,8 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                 browser_pid = psutil.Process(self.browser.service.process.pid)
                 self.browser_pid = browser_pid.pid
 
-            self.browser_pid = VarSafe(self.browser_pid, "browser_pid", "browser_pid")
-            save_variables(kept_variables, "scr_vars.kpv")
+            # self.browser_pid = VarSafe(self.browser_pid, "browser_pid", "browser_pid")
+            # save_variables(kept_variables, "scr_vars.kpv")
             docrawl_logger.success(f'Browser PID: {self.browser_pid}')
         except Exception as e:
             docrawl_logger.error(f'Error while determining browser PID: {e}')
@@ -960,37 +1023,35 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
             yield scrapy.Request(url=URLS[i], callback=FUNCTIONS[i])  # yield
 
     def parse(self, response):
-        global spider_functions
-        global docrawl_core_done
+        # global spider_functions
+        # global docrawl_core_done
 
         self.browser.get(response.url)
-        self.browser_meta_data['current_page'] = self.browser.current_url
 
         docrawl_core_done = False
         page = Selector(text=self.browser.page_source)
 
         while not docrawl_core_done:
-            spider_requests = self._load_request()
-            spider_functions = self._load_function()
+            spider_requests = self.meta_data.request_info
+            spider_functions = self.meta_data.function_info
 
-            self.browser_meta_data['last_function'] = spider_functions
             try:
                 time.sleep(1)
                 docrawl_logger.info('Docrawl core loop')
-                docrawl_logger.warning(f'Browser meta data: {self.browser_meta_data}')
+                docrawl_logger.warning(f'Browser meta data: {self.meta_data}')
                 docrawl_logger.info(f'Spider functions: {spider_functions}')
+                docrawl_logger.info(f'Spider requests: {spider_requests}')
 
                 if not spider_requests['loaded']:
+                    docrawl_logger.warning(spider_requests['url'])
                     self.browser.get(spider_requests['url'])
-                    self.browser_meta_data['current_page'] = self.browser.current_url
                     page = Selector(text=self.browser.page_source)
 
                     spider_requests['loaded'] = True
-                    spider_requests = VarSafe(spider_requests, "spider_requests", "spider_requests")
-                    save_variables(kept_variables, "scr_vars.kpv")
+                    self.meta_data.request_info = spider_requests
 
                 if not spider_functions['done']:
-                    function_str = spider_functions['function']
+                    function_str = spider_functions['name']
                     function = eval(function_str)
 
                     inp = spider_functions['input']
@@ -1002,10 +1063,9 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                         function(inp)
 
                     spider_functions['done'] = True
-                    spider_functions = VarSafe(spider_functions, "spider_functions", "spider_functions")
-                    save_variables(kept_variables, "scr_vars.kpv")
+                    self.meta_data.function_info = spider_functions
+
                 page = Selector(text=self.browser.page_source)
-                # save_variables(kept_variables,"scr_vars.kpv")
             except KeyboardInterrupt:
                 break
 
