@@ -999,7 +999,7 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                 docrawl_logger.info(f'Spider request: {spider_request}')
 
                 if not spider_request['loaded']:
-                    self.browser.get(spider_function['url'])
+                    self.browser.get(spider_request['url'])
                     page = Selector(text=self.browser.page_source)
 
                     spider_request['loaded'] = True
