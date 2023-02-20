@@ -988,28 +988,28 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
         page = Selector(text=self.browser.page_source)
 
         while not docrawl_core_done:
-            spider_requests = self.meta_data['request']
-            spider_functions = self.meta_data['function']
+            spider_request = self.meta_data['request']
+            spider_function = self.meta_data['function']
 
             try:
                 time.sleep(1)
                 docrawl_logger.info('Docrawl core loop')
                 docrawl_logger.info(f'Browser meta data: {self.meta_data}')
-                docrawl_logger.info(f'Spider function: {spider_functions}')
-                docrawl_logger.info(f'Spider request: {spider_requests}')
+                docrawl_logger.info(f'Spider function: {spider_function}')
+                docrawl_logger.info(f'Spider request: {spider_request}')
 
-                if not spider_requests['loaded']:
-                    self.browser.get(spider_requests['url'])
+                if not spider_request['loaded']:
+                    self.browser.get(spider_function['url'])
                     page = Selector(text=self.browser.page_source)
 
-                    spider_requests['loaded'] = True
-                    self.meta_data['request'] = spider_requests
+                    spider_request['loaded'] = True
+                    self.meta_data['request'] = spider_request
 
-                if not spider_functions['done']:
-                    function_str = spider_functions['name']
+                if not spider_function['done']:
+                    function_str = spider_function['name']
                     function = eval(function_str)
 
-                    inp = spider_functions['input']
+                    inp = spider_function['input']
                     docrawl_logger.info(f'Function input from docrawl core: {inp}')
 
                     if function_str in FUNCTIONS.keys():
@@ -1017,8 +1017,8 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                     else:
                         function(inp)
 
-                    spider_functions['done'] = True
-                    self.meta_data['function'] = spider_functions
+                    spider_function['done'] = True
+                    self.meta_data['function'] = spider_function
 
                 page = Selector(text=self.browser.page_source)
             except KeyboardInterrupt:
