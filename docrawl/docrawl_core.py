@@ -467,7 +467,7 @@ def scan_web_page(browser, page, inp):
 
     save_coordinates_of_elements(selectors, names, xpaths, data)
 
-    docrawl_logger.info(f'Scan WEb Page function duration {timedelta_format(datetime.datetime.now(), time_start_f)}')
+    docrawl_logger.info(f'Scan Web Page function duration {timedelta_format(datetime.datetime.now(), time_start_f)}')
 
 
 def wait_until_element_is_located(browser, page, inp):
