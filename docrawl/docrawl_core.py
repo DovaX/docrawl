@@ -759,6 +759,21 @@ def extract_table_xpath(browser, page, inp):
 
 
 class BrowserMetaData(UserDict):
+    """
+    Stores browser metadata such as driver, proxy, request and function info.
+
+    Ensures synchronisation with .kpv file.
+
+    Expected structure:
+
+    browser_metadata = {
+        "browser": {"driver": "Firefox", "headless": True, "browser_pid": 1234},
+        "proxy": {"ip": "192.123.23.2", "port": 17, "username": "qwerty", "password": "12345"},
+        "request": {"url": "https://forloop.ai", "loaded": True},
+        "function": {"name": "extract_xpath", "input": "/html/main/div[4]/span", "done": False}
+    }
+    """
+
     def __init__(self, kpv_file: str = 'browser_meta_data.kpv'):
         super().__init__()
 
@@ -766,6 +781,10 @@ class BrowserMetaData(UserDict):
         self._set_init_values()
 
     def __str__(self):
+        """
+        Prints metadata in certain order.
+        """
+
         elements_order = ['browser', 'proxy', 'request', 'function']
         ordered_dict = dict()
 
@@ -775,6 +794,10 @@ class BrowserMetaData(UserDict):
         return str(ordered_dict)
 
     def _set_init_values(self):
+        """
+        Initial value for function must be set so crawler is able to start requests.
+        """
+
         init_function = {"name": "print", "input": "Bla", "done": False}
         self.__setitem__('function', init_function)
 
@@ -789,6 +812,7 @@ class BrowserMetaData(UserDict):
         except Exception as e:
             value = None
 
+        # Update value in dict
         self.__setitem__(key, value)
 
         return self.data[key]
