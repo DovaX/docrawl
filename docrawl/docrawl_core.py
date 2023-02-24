@@ -1001,8 +1001,6 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                 time.sleep(1)
                 docrawl_logger.info('Docrawl core loop')
                 docrawl_logger.info(f'Browser meta data: {self.meta_data}')
-                docrawl_logger.info(f'Spider function: {spider_function}')
-                docrawl_logger.info(f'Spider request: {spider_request}')
 
                 if not spider_request['loaded']:
                     self.browser.get(spider_request['url'])
