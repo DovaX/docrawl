@@ -81,7 +81,7 @@ def wait_until_element_is_located(xpath):
     """
 
     inp = {
-        'xpath': xpath.kp
+        'xpath': xpath
     }
 
     run_function('wait_until_element_is_located', inp)
