@@ -333,17 +333,23 @@ def scan_web_page(browser, page, inp):
                     pickle.dump(data, pickle_file)
         else:
             if 'link' in element_name:
-                xpath += '/@href'
-            elif 'element' in element_name:
-                pass
-            elif 'button' in element_name:
-                pass
+                # Link tag may contain 2 types od data: link itself (href) and text, so prepare both
+                xpath_href = xpath + '/@href'
+                xpath_text = xpath + '//text()'
+
+                data = {
+                    'link': ''.join(page.xpath(xpath_href).extract()).strip(),
+                    'text': ''.join(page.xpath(xpath_text).extract()).strip()
+                }
+
+            elif 'element' in element_name or 'button' in element_name:
+                data = ''.join(page.xpath(xpath).extract()).strip()
             else:
                 xpath += '//text()'
 
-            data = ''.join(page.xpath(xpath).extract()).strip()
+                data = ''.join(page.xpath(xpath).extract()).strip()
 
-            if data:
+            if len(data) > 0:
                 with open(path + '.pickle', 'wb') as pickle_file:
                     pickle.dump(data, pickle_file)
 
@@ -361,7 +367,7 @@ def scan_web_page(browser, page, inp):
         """
         Finds elements on page using Selenium Selector and HTML Parser
             :param tags: list of tags
-            :param element_name: type of element (table, bulelt, text, headline, link, ...)
+            :param element_name: type of element (table, bullet, text, headline, link, ...)
             :param custom_tag: if provided tag is custom (not predefined)
         """
 
