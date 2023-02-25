@@ -35,6 +35,7 @@ from selenium.webdriver.firefox.service import Service
 from webdriver_manager.firefox import GeckoDriverManager
 from webdriver_manager.chrome import ChromeDriverManager
 
+
 from scrapy.selector import Selector
 from keepvariable.keepvariable_core import VarSafe, kept_variables, save_variables, load_variable_safe
 
@@ -84,6 +85,59 @@ def take_screenshot(browser, page, inp):
         string = browser.execute_cdp_cmd('Page.captureScreenshot', screenshot_config)['data']  # Taking screenshot
         with open(filename, "w+") as fh:
             fh.write(string)
+
+def take_png_screenshot(browser, page, inp):
+    """
+    Takes screenshot of current page and saves it.
+        :param browser: Selenium driver, browser instance
+        :param inp, list, inputs from launcher (filename)
+    """
+
+    filename = inp[0]
+    '''
+    try:
+        root_element = browser.find_element(By.XPATH, '/html')
+        browser.save_full_page_screenshot(filename)
+
+        browser.execute_script("return arguments[0].scrollIntoView(true);", root_element)
+    except Exception as e:
+        print('Error while taking page screenshot!', e)
+    '''
+    if type(browser) == webdriver.Firefox:
+
+        try:
+            root_element = browser.find_element(By.XPATH, '/html')
+            #string = browser.get_full_page_screenshot_as_file(filename)
+            #driver.find_element_by_tag_name('body').screenshot('web_screenshot4.png')
+    
+            screenshot=browser.get_full_page_screenshot_as_file(filename)
+            print(screenshot)
+            browser.execute_script("return arguments[0].scrollIntoView(true);", root_element)
+
+            #with open(filename, "w+") as fh:
+            #    fh.write(string)
+        except Exception as e:
+            print('Error while taking page screenshot!', e)
+
+    # elif type(browser) == webdriver.Chrome:
+    #     # Get params needed for fullpage screenshot
+    #     page_rect = browser.execute_cdp_cmd('Page.getLayoutMetrics', {})
+
+    #     # Set the width and height of the viewport to screenshot, same as the site's content size
+    #     screenshot_config = {'captureBeyondViewport': True,
+    #                          'fromSurface': True,
+    #                          'clip': {'width': page_rect['cssContentSize']['width'],
+    #                                   'height': page_rect['cssContentSize']['height'],
+    #                                   'x': 0,
+    #                                   'y': 0,
+    #                                   'scale': 1},
+    #                          }
+    #     # Dictionary with 1 key: data
+    #     string = browser.execute_cdp_cmd('Page.captureScreenshot', screenshot_config)['data']  # Taking screenshot
+    #     with open(filename, "w+") as fh:
+    #         fh.write(string)
+
+
 
 
 def extract_page_source(browser, page, inp):
@@ -1040,6 +1094,7 @@ FUNCTIONS = {"click_xpath": click_xpath,
              "extract_page_source": extract_page_source,
              "wait_until_element_is_located": wait_until_element_is_located,
              "take_screenshot": take_screenshot,
+             "take_png_screenshot": take_png_screenshot,
              "scroll_web_page": scroll_web_page,
              "download_images": download_images,
              }

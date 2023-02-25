@@ -29,6 +29,23 @@ def take_screenshot(filename):
     run_function('take_screenshot', inp)
 
 
+def take_png_screenshot(filename):
+    """
+    Launches take_screenshot from core.
+        :param filename: string, output filename (where to save the screenshot)
+    """
+
+    print('LAUNCHER', 'Taking screenshot')
+
+    function = "take_png_screenshot"
+
+    inp = [filename]
+
+    spider_functions = {"function": function, "input": inp, "done": False}
+    spider_functions = kv.VarSafe(spider_functions, "spider_functions", "spider_functions")
+    kv.save_variables(kv.kept_variables, "scr_vars.kpv")
+
+
 def extract_page_source(filename):
     """
     Launches extract_page_source from core.
