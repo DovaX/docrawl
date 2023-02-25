@@ -3,6 +3,7 @@ from scrapy.crawler import CrawlerRunner
 from crochet import setup
 import keepvariable.keepvariable_core as kv
 import time
+from docrawl_logger import docrawl_logger
 
 
 def load_website(url):
@@ -10,11 +11,9 @@ def load_website(url):
         url = "http://" + url
 
     spider_requests = {"url": url, "loaded": False}
-    spider_requests = kv.VarSafe(spider_requests, "spider_requests", "spider_requests")
-    print("SPIDER_REQUESTS", spider_requests)
-    kv.save_variables(kv.kept_variables, "scr_vars.kpv")
 
-    # docrawl_core.spider_requests={"url":url,"loaded":False}
+    spider_requests = kv.VarSafe(spider_requests, "request", "request")
+    kv.save_variables(kv.kept_variables, "browser_meta_data.kpv")
 
 
 def take_screenshot(filename):
@@ -23,15 +22,11 @@ def take_screenshot(filename):
         :param filename: string, output filename (where to save the screenshot)
     """
 
-    print('LAUNCHER', 'Taking screenshot')
+    inp = {
+        'filename': filename
+    }
 
-    function = "take_screenshot"
-
-    inp = [filename]
-
-    spider_functions = {"function": function, "input": inp, "done": False}
-    spider_functions = kv.VarSafe(spider_functions, "spider_functions", "spider_functions")
-    kv.save_variables(kv.kept_variables, "scr_vars.kpv")
+    run_function('take_screenshot', inp)
 
 
 def take_png_screenshot(filename):
@@ -57,19 +52,16 @@ def extract_page_source(filename):
         :param filename: string, name of file that will be used for storing page source
     """
 
-    print('LAUNCHER', 'Extracting page source')
+    inp = {
+        'filename': filename
+    }
 
-    function = "extract_page_source"
-
-    inp = [filename]
-
-    spider_functions = {"function": function, "input": inp, "done": False}
-    spider_functions = kv.VarSafe(spider_functions, "spider_functions", "spider_functions")
-    kv.save_variables(kv.kept_variables, "scr_vars.kpv")
+    run_function('extract_page_source', inp)
 
 
 def scan_web_page(incl_tables=False, incl_bullets=False, incl_texts=False, incl_headlines=False, incl_links=False,
-                  incl_images=False, incl_buttons=False, by_xpath=None, output_folder='output/scraped_data'):
+                  incl_images=False, incl_buttons=False, by_xpath=None, context_xpath=None,
+                  output_folder='output/scraped_data'):
     """
     Launches find_tables function from core.
         :param incl_tables: boolean, search for tables
@@ -83,16 +75,20 @@ def scan_web_page(incl_tables=False, incl_bullets=False, incl_texts=False, incl_
         :param output_folder: str, path to output folder
     """
 
-    print("LAUNCHER", "Scaning web page")
+    inp = {
+        'incl_tables': incl_tables,
+        'incl_bullets': incl_bullets,
+        'incl_texts': incl_texts,
+        'incl_headlines': incl_headlines,
+        'incl_links': incl_links,
+        'incl_images': incl_images,
+        'incl_buttons': incl_buttons,
+        'by_xpath': by_xpath,
+        'context_xpath': context_xpath,
+        'output_folder': output_folder,
+    }
 
-    function = "scan_web_page"
-
-    inp = [incl_tables, incl_bullets, incl_texts, incl_headlines, incl_links,
-           incl_images, incl_buttons, by_xpath, output_folder]
-
-    spider_functions = {"function": function, "input": inp, "done": False}
-    spider_functions = kv.VarSafe(spider_functions, "spider_functions", "spider_functions")
-    kv.save_variables(kv.kept_variables, "scr_vars.kpv")
+    run_function('scan_web_page', inp)
 
 
 def wait_until_element_is_located(xpath):
@@ -101,15 +97,11 @@ def wait_until_element_is_located(xpath):
         :param xpath: str, xpath of element to be located
     """
 
-    print("LAUNCHER", "Waiting until element is located")
+    inp = {
+        'xpath': xpath
+    }
 
-    function = "wait_until_element_is_located"
-
-    inp = [xpath]
-
-    spider_functions = {"function": function, "input": inp, "done": False}
-    spider_functions = kv.VarSafe(spider_functions, "spider_functions", "spider_functions")
-    kv.save_variables(kv.kept_variables, "scr_vars.kpv")
+    run_function('wait_until_element_is_located', inp)
 
 
 def get_current_url(filename):
@@ -118,14 +110,11 @@ def get_current_url(filename):
         :param filename: string, name of file that will be used for storing the URL
     """
 
-    print("LAUNCHER", "Current URL extract")
+    inp = {
+        'filename': filename
+    }
 
-    function = "get_current_url"
-    inp = [filename]
-
-    spider_functions = {"function": function, "input": inp, "done": False}
-    spider_functions = kv.VarSafe(spider_functions, "spider_functions", "spider_functions")
-    kv.save_variables(kv.kept_variables, "scr_vars.kpv")
+    run_function('get_current_url', inp)
 
 
 def close_browser():
@@ -133,13 +122,9 @@ def close_browser():
     Launches close_browser function from core.
     """
 
-    print("LAUNCHER", "Close browser")
+    inp = None
 
-    function = "close_browser"
-    spider_functions = {"function": function, "input": None, "done": False}
-    spider_functions = kv.VarSafe(spider_functions, "spider_functions", "spider_functions")
-    kv.save_variables(kv.kept_variables, "scr_vars.kpv")
-    # time.sleep(3)  # Without delay function is not transferred to docrawl_core
+    run_function('close_browser', inp)
 
 
 def scroll_web_page(scroll_to, scroll_by, scroll_max):
@@ -150,14 +135,13 @@ def scroll_web_page(scroll_to, scroll_by, scroll_max):
         :param scroll_max: bool, scroll to maximum
     """
 
-    print("LAUNCHER", "Scroll web page")
+    inp = {
+        'scroll_to': scroll_to,
+        'scroll_by': scroll_by,
+        'scroll_max': scroll_max
+    }
 
-    function = "scroll_web_page"
-    inp = [scroll_to, scroll_by, scroll_max]
-
-    spider_functions = {"function": function, "input": inp, "done": False}
-    spider_functions = kv.VarSafe(spider_functions, "spider_functions", "spider_functions")
-    kv.save_variables(kv.kept_variables, "scr_vars.kpv")
+    run_function('scroll_web_page', inp)
 
 
 def download_images(image_xpath, filename):
@@ -167,126 +151,68 @@ def download_images(image_xpath, filename):
         :param filename: string, output filename
     """
 
-    print("LAUNCHER", "Download images")
+    inp = {
+        'image_xpath': image_xpath,
+        'filename': filename,
+    }
 
-    function = "download_images"
-    inp = [image_xpath, filename]
-
-    spider_functions = {"function": function, "input": inp, "done": False}
-    spider_functions = kv.VarSafe(spider_functions, "spider_functions", "spider_functions")
-    kv.save_variables(kv.kept_variables, "scr_vars.kpv")
+    run_function('download_images', inp)
 
 
 def extract_xpath(xpath, filename, write_in_file_mode="w+"):
-    print("LAUNCHER", xpath, filename)
-    args = xpath
-    if type(args) == list:
-        command = args[0]
-    else:
-        command = args
+    inp = {
+        'xpath': xpath,
+        'filename': filename,
+        'write_in_file_mode': write_in_file_mode
+    }
 
-    command = [xpath, filename, write_in_file_mode]
-
-    function = "extract_xpath"
-    inp = command
-
-    spider_functions = {"function": function, "input": inp, "done": False}
-    spider_functions = kv.VarSafe(spider_functions, "spider_functions", "spider_functions")
-    kv.save_variables(kv.kept_variables, "scr_vars.kpv")
+    run_function('extract_xpath', inp)
 
 
 def extract_multiple_xpath(xpaths, filename="extracted_data.xlsx"):
-    # function = "exec"
-    print("DOCRAWL LAUNCHER - extract_multiple_xpath")
+    inp = {
+        'xpaths': xpaths,
+        'filename': filename
+    }
 
-    args = xpaths
-    if type(args) == list:
-        command = args[0]
-    else:
-        command = args
-
-    command = [xpaths, filename]
-    # command=command.replace("'","$")
-    # command=command.replace('"','€')
-
-    # inp = "print(page.xpath('" + command + "').extract())"
-    # print("INPUT",inp)
-
-    function = "extract_multiple_xpaths"
-    inp = command
-
-    spider_functions = {"function": function, "input": inp, "done": False}
-    spider_functions = kv.VarSafe(spider_functions, "spider_functions", "spider_functions")
-    kv.save_variables(kv.kept_variables, "scr_vars.kpv")
-
-    # docrawl_core.spider_requests={"url":url,"loaded":False}
+    run_function('extract_multiple_xpaths', inp)
 
 
 def extract_table_xpath(xpath_row, xpath_col, first_row_header, filename="extracted_data.xlsx"):
-    # function = "exec"
-    args = xpath_row
-    if type(args) == list:
-        command = args[0]
-    else:
-        command = args
+    inp = {
+        'xpath_row': xpath_row,
+        'xpath_col': xpath_col,
+        'first_row_header': first_row_header,
+        'filename': filename
+    }
 
-    command = [xpath_row, xpath_col, filename, first_row_header]
-    # command=command.replace("'","$")
-    # command=command.replace('"','€')
-
-    # inp = "print(page.xpath('" + command + "').extract())"
-    # print("INPUT",inp)
-
-    function = "extract_table_xpath"
-    inp = command
-
-    spider_functions = {"function": function, "input": inp, "done": False}
-    spider_functions = kv.VarSafe(spider_functions, "spider_functions", "spider_functions")
-    kv.save_variables(kv.kept_variables, "scr_vars.kpv")
-
-    # docrawl_core.spider_requests={"url":url,"loaded":False}
+    run_function('extract_table_xpath', inp)
 
 
 def click_xpath(xpath):
-    # function = "exec"
-    print(xpath)
+    inp = {
+        'xpath': xpath
+    }
 
-    '''
-    OLD IMPLEMENTATION 
-
-    if type(args) == list:
-        command = args[0]
-    else:
-        command = args
-    inp = "self.browser.find_element_by_xpath('" + command + "').click()"
-
-    function = "click_xpath"
-    inp = command
-    '''
-
-    function = "click_xpath"
-    inp = [xpath]
-
-    spider_functions = {"function": function, "input": inp, "done": False}
-    spider_functions = kv.VarSafe(spider_functions, "spider_functions", "spider_functions")
-    kv.save_variables(kv.kept_variables, "scr_vars.kpv")
+    run_function('click_xpath', inp)
 
 
-def click_name(args):
-    function = "exec"
-    print(args)
+def click_name(text):
+    inp = {
+        'text': text
+    }
 
-    if type(args) == list:
-        command = args[0]
-    else:
-        command = args
-    inp = "self.browser.find_element_by_link_text('" + command + "').click()"
+    run_function('click_name', inp)
 
-    spider_functions = {"function": function, "input": inp, "done": False}
-    spider_functions = kv.VarSafe(spider_functions, "spider_functions", "spider_functions")
-    kv.save_variables(kv.kept_variables, "scr_vars.kpv")
 
-    # docrawl_core.spider_requests={"url":url,"loaded":False}
+def run_function(function, function_input):
+    docrawl_logger.info(f'Running function {function}')
+    docrawl_logger.info(f'Function input: {function_input}')
+
+    spider_functions = {"name": function, "input": function_input, "done": False}
+    spider_functions = kv.VarSafe(spider_functions, "function", "function")
+    kv.save_variables(kv.kept_variables, "browser_meta_data.kpv")
+
 
 
 def run_spider(number, in_browser=True, driver='Firefox'):
@@ -300,12 +226,14 @@ def run_spider(number, in_browser=True, driver='Firefox'):
             - in_browser=False -> add -headless to driver options
     """
 
+    headless = not in_browser
+
     setup()
     crawler = CrawlerRunner()
-    browser = {'in_browser': in_browser, 'driver': driver}
+    browser = {'headless': headless, 'driver': driver}
     browser = kv.VarSafe(browser, "browser", "browser")
 
-    kv.save_variables(kv.kept_variables, 'scr_vars.kpv')
+    kv.save_variables(kv.kept_variables, "browser_meta_data.kpv")
 
     time.sleep(1)
 
