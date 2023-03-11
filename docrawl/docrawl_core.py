@@ -503,23 +503,32 @@ def scan_web_page(browser, page, inp):
 
     ##### CUSTOM XPATH SECTION #####
     if by_xpath:
-        # With text() at the end will not work
-        by_xpath = by_xpath.removesuffix('/text()').rstrip('/')
+        # Temporary workaround due to weird behaviour of lists in kpv
+        if ';' in by_xpath:
+            list_of_xpaths = by_xpath.split(';')[:-1]
+        else:
+            list_of_xpaths = [by_xpath]
 
-        custom_tag = [by_xpath]
-        custom_tag_splitted = re.split('//|/', by_xpath)  # Split XPath in parts
-        last_element_in_xpath = custom_tag_splitted[-1]  # Last element in XPath
+        for i, elem in enumerate(list_of_xpaths):
+            # With text() at the end will not work
+            xpath = elem.removesuffix('/text()').rstrip('/')
 
-        # Default element's name
-        element_name = 'element'
+            custom_tag = [xpath]
+            custom_tag_splitted = re.split('//|/', xpath)  # Split XPath in parts
+            last_element_in_xpath = custom_tag_splitted[-1]  # Last element in XPath
 
-        # Try to find last element in XPath in predefined tags to identify element name
-        for element_type, predefined_tags in PREDEFINED_TAGS.items():
-            if any([last_element_in_xpath.startswith(x) for x in predefined_tags]):
-                element_name = element_type
-                break
+            # Default element's name
+            element_name = 'element'
 
-        find_elements(custom_tag, element_name, custom_tag=True)
+            # Try to find last element in XPath in predefined tags to identify element name
+            for element_type, predefined_tags in PREDEFINED_TAGS.items():
+                if any([last_element_in_xpath.startswith(x) for x in predefined_tags]):
+                    element_name = element_type
+                    break
+
+            element_name = f'{element_name}_{i}'
+
+            find_elements(custom_tag, element_name, custom_tag=True)
 
     if context_xpath:
         find_elements([context_xpath], 'context', custom_tag=True)
