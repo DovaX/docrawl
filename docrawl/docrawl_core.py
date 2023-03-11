@@ -396,12 +396,18 @@ def scan_web_page(browser, page, inp):
                     'text': ''.join(page.xpath(xpath_text).extract()).strip()
                 }
 
-            elif 'element' in element_name or 'button' in element_name:
+            elif 'button' in element_name:
                 data = ''.join(page.xpath(xpath).extract()).strip()
             else:
                 xpath += '//text()'
 
-                data = ''.join(page.xpath(xpath).extract()).strip()
+                # Try to extract text from element
+                try:
+                    data = ''.join(page.xpath(xpath).extract()).strip()
+                # Extract element otherwise
+                except:
+                    xpath = xpath.removesuffix('//text()')
+                    data = ''.join(page.xpath(xpath).extract()).strip()
 
             if len(data) > 0:
                 with open(path + '.pickle', 'wb') as pickle_file:
