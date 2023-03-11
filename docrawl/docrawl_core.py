@@ -684,7 +684,8 @@ def download_images(browser, page, inp):
 def click_xpath(browser, page, inp):
     xpath = inp['xpath']
 
-    docrawl_logger.info('Searching for element to click')
+    xpath = xpath.removesuffix('//text()').rstrip('/')
+    docrawl_logger.info(f'Searching for element to click: {xpath}')
     element = browser.find_element(By.XPATH, xpath)
 
     if element.is_enabled():
