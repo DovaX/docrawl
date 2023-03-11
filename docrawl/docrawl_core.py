@@ -1049,7 +1049,7 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
             yield scrapy.Request(url=URLS[i], callback=FUNCTIONS[i])  # yield
 
     def parse(self, response):
-        self.browser.get(response.url)
+        self.browser.get(self.meta_data['request']['url'])
 
         docrawl_core_done = False
         page = Selector(text=self.browser.page_source)
