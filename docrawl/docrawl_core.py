@@ -396,12 +396,18 @@ def scan_web_page(browser, page, inp):
                     'text': ''.join(page.xpath(xpath_text).extract()).strip()
                 }
 
-            elif 'element' in element_name or 'button' in element_name:
+            elif 'button' in element_name:
                 data = ''.join(page.xpath(xpath).extract()).strip()
             else:
                 xpath += '//text()'
 
-                data = ''.join(page.xpath(xpath).extract()).strip()
+                # Try to extract text from element
+                try:
+                    data = ''.join(page.xpath(xpath).extract()).strip()
+                # Extract element otherwise
+                except:
+                    xpath = xpath.removesuffix('//text()')
+                    data = ''.join(page.xpath(xpath).extract()).strip()
 
             if len(data) > 0:
                 with open(path + '.pickle', 'wb') as pickle_file:
@@ -497,23 +503,32 @@ def scan_web_page(browser, page, inp):
 
     ##### CUSTOM XPATH SECTION #####
     if by_xpath:
-        # With text() at the end will not work
-        by_xpath = by_xpath.removesuffix('/text()').rstrip('/')
+        # Temporary workaround due to weird behaviour of lists in kpv
+        if ';' in by_xpath:
+            list_of_xpaths = by_xpath.split(';')[:-1]
+        else:
+            list_of_xpaths = [by_xpath]
 
-        custom_tag = [by_xpath]
-        custom_tag_splitted = re.split('//|/', by_xpath)  # Split XPath in parts
-        last_element_in_xpath = custom_tag_splitted[-1]  # Last element in XPath
+        for i, elem in enumerate(list_of_xpaths):
+            # With text() at the end will not work
+            xpath = elem.removesuffix('/text()').rstrip('/')
 
-        # Default element's name
-        element_name = 'element'
+            custom_tag = [xpath]
+            custom_tag_splitted = re.split('//|/', xpath)  # Split XPath in parts
+            last_element_in_xpath = custom_tag_splitted[-1]  # Last element in XPath
 
-        # Try to find last element in XPath in predefined tags to identify element name
-        for element_type, predefined_tags in PREDEFINED_TAGS.items():
-            if any([last_element_in_xpath.startswith(x) for x in predefined_tags]):
-                element_name = element_type
-                break
+            # Default element's name
+            element_name = 'element'
 
-        find_elements(custom_tag, element_name, custom_tag=True)
+            # Try to find last element in XPath in predefined tags to identify element name
+            for element_type, predefined_tags in PREDEFINED_TAGS.items():
+                if any([last_element_in_xpath.startswith(x) for x in predefined_tags]):
+                    element_name = element_type
+                    break
+
+            element_name = f'{element_name}_{i}'
+
+            find_elements(custom_tag, element_name, custom_tag=True)
 
     if context_xpath:
         find_elements([context_xpath], 'context', custom_tag=True)
@@ -684,7 +699,8 @@ def download_images(browser, page, inp):
 def click_xpath(browser, page, inp):
     xpath = inp['xpath']
 
-    docrawl_logger.info('Searching for element to click')
+    xpath = xpath.removesuffix('//text()').rstrip('/')
+    docrawl_logger.info(f'Searching for element to click: {xpath}')
     element = browser.find_element(By.XPATH, xpath)
 
     if element.is_enabled():
@@ -1042,7 +1058,7 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
             yield scrapy.Request(url=URLS[i], callback=FUNCTIONS[i])  # yield
 
     def parse(self, response):
-        self.browser.get(response.url)
+        self.browser.get(self.meta_data['request']['url'])
 
         docrawl_core_done = False
         page = Selector(text=self.browser.page_source)
