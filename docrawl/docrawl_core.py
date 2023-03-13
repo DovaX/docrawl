@@ -3,7 +3,7 @@
 #    sys.path.append("C:\\Users\\EUROCOM\\Documents\\Git\\DovaX")
 # except:
 #    pass
-from docrawl_logger import docrawl_logger
+from docrawl.docrawl_logger import docrawl_logger
 from collections import UserDict
 import datetime
 import scrapy

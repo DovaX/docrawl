@@ -3,7 +3,7 @@ from scrapy.crawler import CrawlerRunner
 from crochet import setup
 import keepvariable.keepvariable_core as kv
 import time
-from docrawl_logger import docrawl_logger
+from docrawl.docrawl_logger import docrawl_logger
 
 
 def load_website(url):
