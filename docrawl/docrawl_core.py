@@ -93,7 +93,7 @@ def take_png_screenshot(browser, page, inp):
         :param inp, list, inputs from launcher (filename)
     """
 
-    filename = inp[0]
+    filename = inp["filename"]
     '''
     try:
         root_element = browser.find_element(By.XPATH, '/html')
