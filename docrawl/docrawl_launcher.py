@@ -35,15 +35,10 @@ def take_png_screenshot(filename):
         :param filename: string, output filename (where to save the screenshot)
     """
 
-    print('LAUNCHER', 'Taking screenshot')
-
-    function = "take_png_screenshot"
-
-    inp = [filename]
-
-    spider_functions = {"function": function, "input": inp, "done": False}
-    spider_functions = kv.VarSafe(spider_functions, "spider_functions", "spider_functions")
-    kv.save_variables(kv.kept_variables, "scr_vars.kpv")
+    inp = {
+        'filename': filename
+    }
+    run_function('take_png_screenshot', inp)
 
 
 def extract_page_source(filename):
