@@ -280,10 +280,15 @@ def scan_web_page(browser, page, inp):
 
             existing_xpaths.append(xpath)
 
-        elements_positions = elems_pos
-        elements_positions = VarSafe(elements_positions, 'elements_positions', 'elements_positions')
+        
 
-        save_variables(kept_variables, 'elements_positions.kpv')
+        elements_positions = {"elements_positions":elems_pos}
+        filename="elements_positions.kpv"
+        with open(filename,"w+", encoding="utf8",errors='ignore') as file: #TODO: improve KPV to enable multiple keep variable files -> it collided with browser_metadata_kpv,
+            file.write(str(elements_positions))
+            
+        #elements_positions = VarSafe(elements_positions, 'elements_positions', 'elements_positions')
+        #save_variables(kept_variables, 'elements_positions.kpv')
 
     def serialize_and_append_data(element_name, selector, xpath):
         """
@@ -416,8 +421,12 @@ def scan_web_page(browser, page, inp):
         if 'context' in element_name:
             data = None
         else:
-            data = pickle_file.name
-
+            try:
+                data = pickle_file.name
+            except Exception as e:
+                data = None
+                print(e)
+        
         final_elements.update({element_name:
                                    {'selector': selector,
                                     'data': data,
@@ -457,8 +466,9 @@ def scan_web_page(browser, page, inp):
                     xpath = find_element_xpath(elements_tree, i)
                     serialize_and_append_data(f'{element_name}_{i}', element, xpath)
 
-                except:
-                    pass
+                except Exception as e:
+                    print(e)
+                #    pass
 
     def find_element_xpath(tree, i):
         """
@@ -531,7 +541,10 @@ def scan_web_page(browser, page, inp):
             find_elements(custom_tag, element_name, custom_tag=True)
 
     if context_xpath:
-        find_elements([context_xpath], 'context', custom_tag=True)
+        try:
+            find_elements([context_xpath], 'context', custom_tag=True)
+        except Exception as e:
+            print(e)
 
     ##### SAVING COORDINATES OF ELEMENTS #####
 
@@ -907,9 +920,10 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
         #   'CONCURRENT_REQUESTS' : '20',
     }
 
-    def __init__(self):
+    def __init__(self, *a, **kw):
         # can be replaced for debugging with browser = webdriver.FireFox()
         # self.browser = webdriver.PhantomJS(executable_path=PHANTOMJS_PATH, service_args=['--ignore-ssl-errors=true'])
+        #super().__init__(*a, **kw)
         self.meta_data = BrowserMetaData()
 
         self.browser = self._initialise_browser()
