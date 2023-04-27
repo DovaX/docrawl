@@ -176,7 +176,7 @@ def scan_web_page(browser, page, inp):
     TABLE_TAG = ['table']
     BULLET_TAGS = ['ul', 'ol']
     TEXT_TAGS = ['p', 'strong', 'em', 'div[normalize-space(text())]', 'span[normalize-space(text())]']
-    HEADLINE_TAGS = ['h1', 'h2']
+    HEADLINE_TAGS = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6']
     IMAGE_TAGS = ['img']
     BUTTON_TAGS = ['button', 'a[@role="button"]', 'a[contains(@class, "button")]',
                    'a[contains(@id, "button")]', 'a[@type="button"]', 'a[contains(@class, "btn")]']
