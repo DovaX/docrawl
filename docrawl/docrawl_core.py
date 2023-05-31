@@ -169,6 +169,7 @@ def scan_web_page(browser, page, inp):
     incl_images = inp['incl_images']
     incl_buttons = inp['incl_buttons']
     by_xpath = inp['by_xpath']
+    cookies_xpath = inp['cookies_xpath']        # dev param only
     context_xpath = inp['context_xpath']
     output_folder = inp['output_folder']
 
@@ -425,7 +426,7 @@ def scan_web_page(browser, page, inp):
                 data = pickle_file.name
             except Exception as e:
                 data = None
-                print(e)
+                docrawl_logger.error(f'Error while retrieving file with data: {e}')
         
         final_elements.update({element_name:
                                    {'selector': selector,
@@ -467,8 +468,8 @@ def scan_web_page(browser, page, inp):
                     serialize_and_append_data(f'{element_name}_{i}', element, xpath)
 
                 except Exception as e:
-                    print(e)
-                #    pass
+                    docrawl_logger.error(f'Error while extracting data for element {element_name}: {e}')
+
 
     def find_element_xpath(tree, i):
         """
@@ -544,7 +545,10 @@ def scan_web_page(browser, page, inp):
         try:
             find_elements([context_xpath], 'context', custom_tag=True)
         except Exception as e:
-            print(e)
+            docrawl_logger.error(f'Error while retrieving context elements: {e}')
+
+    if cookies_xpath:
+        find_elements([cookies_xpath], 'cookies', custom_tag=True)
 
     ##### SAVING COORDINATES OF ELEMENTS #####
 
