@@ -55,7 +55,7 @@ def extract_page_source(filename):
 
 
 def scan_web_page(incl_tables=False, incl_bullets=False, incl_texts=False, incl_headlines=False, incl_links=False,
-                  incl_images=False, incl_buttons=False, by_xpath=None, context_xpath=None,
+                  incl_images=False, incl_buttons=False, by_xpath=None, context_xpath=None, cookies_xpath=None,
                   output_folder='output/scraped_data'):
     """
     Launches find_tables function from core.
@@ -80,6 +80,7 @@ def scan_web_page(incl_tables=False, incl_bullets=False, incl_texts=False, incl_
         'incl_buttons': incl_buttons,
         'by_xpath': by_xpath,
         'context_xpath': context_xpath,
+        'cookies_xpath': cookies_xpath,
         'output_folder': output_folder,
     }
 
