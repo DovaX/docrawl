@@ -359,11 +359,10 @@ def scan_web_page(browser, page, inp):
 
         # docrawl_logger.warning(attributes)
         element_data = {
-            'tag_name': '',
+            'tag_name': re.split('//|/', xpath)[-1].split('[')[0],
             'text': text,
             'attributes': attributes
         }
-        #element_data = ElementData(tag_name='', text=text, attributes=attributes)
 
         return element_data
 
