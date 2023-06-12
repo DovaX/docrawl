@@ -512,11 +512,11 @@ def scan_web_page(browser, page, inp):
 
     new_elements_all = []
 
-    def find_elements(tags, element_name, custom_tag=False, element_type: ElementType = ElementType.LINK):
+    def find_elements(tags, element_type: ElementType, custom_tag=False):
         """
         Finds elements on page using Selenium Selector and HTML Parser
             :param tags: list of tags
-            :param element_name: type of element (table, bullet, text, headline, link, ...)
+            :param element_type: type of element (table, bullet, text, headline, link, ...)
             :param custom_tag: if provided tag is custom (not predefined)
         """
 
@@ -537,16 +537,17 @@ def scan_web_page(browser, page, inp):
 
         if elements:
             for i, element in enumerate(elements):
-                # Skip tables with no rows
+                elem_name = f'{element_type}_{i}'
 
-                if element_name == 'table' and len(element.find_elements(By.XPATH, './/tr')) < 2:
+                # Skip tables with no rows
+                if element_type == ElementType.TABLE and len(element.find_elements(By.XPATH, './/tr')) < 2:
                     continue
 
                 try:
                     xpath = find_element_xpath(elements_tree, i)
 
                     element_data = extract_element_data(element=element, xpath=xpath, element_type=element_type)
-                    element_c = Element(name=f'{element_name}_{i}', type=element_name, rect=element.rect, xpath=xpath, data=element_data)
+                    element_c = Element(name=elem_name, type=element_type, rect=element.rect, xpath=xpath, data=element_data)
                     #docrawl_logger.warning(element_data)
                     #docrawl_logger.warning(element_c)
                     #docrawl_logger.warning(element_c.dict())
@@ -554,7 +555,7 @@ def scan_web_page(browser, page, inp):
                     #serialize_and_append_data(f'{element_name}_{i}', element, xpath)
 
                 except Exception as e:
-                    docrawl_logger.error(f'Error while extracting data for element {element_name}: {e}')
+                    docrawl_logger.error(f'Error while extracting data for element {elem_name}: {e}')
 
     def find_element_xpath(tree, i):
         """
@@ -571,31 +572,31 @@ def scan_web_page(browser, page, inp):
 
     ##### TABLES SECTION #####
     if incl_tables:
-        find_elements(TABLE_TAGS, 'table')
+        find_elements(TABLE_TAGS, element_type=ElementType.TABLE)
 
     ##### BULLET SECTION #####
     if incl_bullets:
-        find_elements(BULLET_TAGS, 'bullet')
+        find_elements(BULLET_TAGS, element_type=ElementType.BULLET)
 
     ##### TEXTS SECTION #####
     if incl_texts:
-        find_elements(TEXT_TAGS, 'text')
+        find_elements(TEXT_TAGS, element_type=ElementType.TEXT)
 
     ##### HEADLINES SECTION #####
     if incl_headlines:
-        find_elements(HEADLINE_TAGS, 'headline')
+        find_elements(HEADLINE_TAGS, element_type=ElementType.HEADLINE)
 
     ##### LINKS SECTION #####
     if incl_links:
-        find_elements(LINK_TAGS, 'link', element_type=ElementType.LINK)
+        find_elements(LINK_TAGS, element_type=ElementType.LINK)
 
     ##### IMAGES SECTION #####
     if incl_images:
-        find_elements(IMAGE_TAGS, 'image')
+        find_elements(IMAGE_TAGS, element_type=ElementType.IMAGE)
 
     ##### BUTTONS SECTION #####
     if incl_buttons:
-        find_elements(BUTTON_TAGS, 'button')
+        find_elements(BUTTON_TAGS, element_type=ElementType.BUTTON)
 
     ##### CUSTOM XPATH SECTION #####
     if by_xpath:
@@ -612,18 +613,16 @@ def scan_web_page(browser, page, inp):
             custom_tag = [xpath]
             element_type = classify_element_by_xpath(xpath)
 
-            element_name = f'{element_type}_{i}'
-
-            find_elements(custom_tag, element_name, custom_tag=True)
+            find_elements(custom_tag, element_type, custom_tag=True)
 
     if context_xpath:
         try:
-            find_elements([context_xpath], 'context', custom_tag=True)
+            find_elements([context_xpath], ElementType.CONTEXT, custom_tag=True)
         except Exception as e:
             docrawl_logger.error(f'Error while retrieving context elements: {e}')
 
     if cookies_xpath:
-        find_elements([cookies_xpath], 'cookies', custom_tag=True)
+        find_elements([cookies_xpath], ElementType.COOKIES, custom_tag=True)
 
     ##### SAVING COORDINATES OF ELEMENTS #####
 
