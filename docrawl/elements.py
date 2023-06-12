@@ -16,6 +16,8 @@ class ElementType(str, Enum):
     BUTTON = 'button'
     TABLE = 'table'
     CONTEXT = 'context'
+    ELEMENT = 'element'
+    COOKIES = 'cookies'
 
 
 @dataclass
