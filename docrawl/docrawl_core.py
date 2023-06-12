@@ -35,7 +35,6 @@ from selenium.webdriver.firefox.service import Service
 from webdriver_manager.firefox import GeckoDriverManager
 from webdriver_manager.chrome import ChromeDriverManager
 
-
 from scrapy.selector import Selector
 from keepvariable.keepvariable_core import VarSafe, kept_variables, save_variables, load_variable_safe
 
@@ -54,18 +53,21 @@ def take_screenshot(browser, page, inp):
         :param inp, list, inputs from launcher (filename)
     """
 
-    filename = inp['filename']
+    #filename = inp['filename']
 
     if type(browser) == webdriver.Firefox:
 
         try:
+            docrawl_logger.warning('START SCREENSHOT CREATED')
             root_element = browser.find_element(By.XPATH, '/html')
             string = browser.get_full_page_screenshot_as_base64()
             browser.execute_script("return arguments[0].scrollIntoView(true);", root_element)
 
-            with open(filename, "w+") as fh:
-                fh.write(string)
+            # with open(filename, "w+") as fh:
+            #     fh.write(string)
+            #     docrawl_logger.warning('SCRENSHOT CREATED')
         except Exception as e:
+            string = ""
             docrawl_logger.error(f'Error while taking page screenshot: {e}')
 
     elif type(browser) == webdriver.Chrome:
@@ -83,8 +85,15 @@ def take_screenshot(browser, page, inp):
                              }
         # Dictionary with 1 key: data
         string = browser.execute_cdp_cmd('Page.captureScreenshot', screenshot_config)['data']  # Taking screenshot
-        with open(filename, "w+") as fh:
-            fh.write(string)
+        # with open(filename, "w+") as fh:
+        #     fh.write(string)
+    else:
+        string = ""
+
+    set_scraping_data(string, "test_user:test_project:test_pipeline:scraping:screenshot")
+    docrawl_logger.warning('SCRENSHOT CREATED')
+
+
 
 def take_png_screenshot(browser, page, inp):
     """
