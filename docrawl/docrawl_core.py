@@ -4,7 +4,8 @@
 # except:
 #    pass
 from docrawl.docrawl_logger import docrawl_logger
-from docrawl.elements import Element, ElementType
+from docrawl.elements import Element, ElementType, PREDEFINED_TAGS
+from docrawl.elements import *
 from docrawl.utils import set_scraping_data, flush_scraping_data
 from collections import UserDict
 import datetime
@@ -161,36 +162,7 @@ def scan_web_page(browser, page, inp):
     context_xpath = inp['context_xpath']
     output_folder = inp['output_folder']
 
-    # Predefined tags by type
-    TABLE_TAG = ['table']
-    BULLET_TAGS = ['ul', 'ol']
-    TEXT_TAGS = ['p', 'strong', 'em', 'div[normalize-space(text())]', 'span[normalize-space(text())]']
-    HEADLINE_TAGS = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6']
-    IMAGE_TAGS = ['img']
-    BUTTON_TAGS = ['button', 'a[@role="button"]', 'a[contains(@class, "button")]',
-                   'a[contains(@id, "button")]', 'a[@type="button"]', 'a[contains(@class, "btn")]']
 
-    # <a> tags, excluding links in menu, links as images, mailto links and links with scripts
-    LINK_TAGS = ["""
-                    a[@href
-                    and not(contains(@id, "Menu"))  
-                    and not(contains(@id, "menu"))  
-                    and not(contains(@class, "Menu"))  
-                    and not(contains(@class, "menu"))   
-                    and not(descendant::img) 
-                    and not(descendant::svg)  
-                    and not(contains(@href, "javascript"))  
-                    and not(contains(@href, "mailto"))]
-                    """]
-
-    # All predefined tags
-    PREDEFINED_TAGS = {'table': TABLE_TAG,
-                       'bullet': BULLET_TAGS,
-                       'text': TEXT_TAGS,
-                       'headline': HEADLINE_TAGS,
-                       'image': IMAGE_TAGS,
-                       'button': BUTTON_TAGS,
-                       'link': LINK_TAGS + ['a']}  # + ['a'] is to identify link tags when using custom XPath
 
     try:
         shutil.rmtree(output_folder)
@@ -599,7 +571,7 @@ def scan_web_page(browser, page, inp):
 
     ##### TABLES SECTION #####
     if incl_tables:
-        find_elements(TABLE_TAG, 'table')
+        find_elements(TABLE_TAGS, 'table')
 
     ##### BULLET SECTION #####
     if incl_bullets:
@@ -646,7 +618,7 @@ def scan_web_page(browser, page, inp):
 
             # Try to find last element in XPath in predefined tags to identify element name
             for element_type, predefined_tags in PREDEFINED_TAGS.items():
-                if any([last_element_in_xpath.startswith(x) for x in predefined_tags]):
+                if any([x.startswith(last_element_in_xpath) for x in predefined_tags]):
                     element_name = element_type
                     break
 
