@@ -610,19 +610,9 @@ def scan_web_page(browser, page, inp):
             xpath = elem.removesuffix('/text()').rstrip('/')
 
             custom_tag = [xpath]
-            custom_tag_splitted = re.split('//|/', xpath)  # Split XPath in parts
-            last_element_in_xpath = custom_tag_splitted[-1]  # Last element in XPath
+            element_type = classify_element_by_xpath(xpath)
 
-            # Default element's name
-            element_name = 'element'
-
-            # Try to find last element in XPath in predefined tags to identify element name
-            for element_type, predefined_tags in PREDEFINED_TAGS.items():
-                if any([x.startswith(last_element_in_xpath) for x in predefined_tags]):
-                    element_name = element_type
-                    break
-
-            element_name = f'{element_name}_{i}'
+            element_name = f'{element_type}_{i}'
 
             find_elements(custom_tag, element_name, custom_tag=True)
 

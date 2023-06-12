@@ -1,3 +1,4 @@
+import re
 from enum import Enum
 from dataclasses import dataclass, asdict
 from typing import Dict
@@ -21,12 +22,28 @@ class ElementType(str, Enum):
 class Element:
     name: str
     type: str   # TODO: change to ElementType
-    rect: Dict[str]
+    rect: Dict[str, dict]
     xpath: str
-    data: Dict[str]
+    data: Dict[str, dict]
 
     def dict(self):
         return asdict(self)
+
+
+def classify_element_by_xpath(xpath: str) -> str:
+    xpath_split = re.split('//|/', xpath)  # Split XPath into parts
+    last_element_in_xpath = xpath_split[-1]  # Last element in XPath
+
+    # Default element's type
+    element_type_classified = 'element'
+
+    # Try to find last element in XPath in predefined tags to identify element name
+    for element_type, predefined_tags in PREDEFINED_TAGS.items():
+        if any([x == last_element_in_xpath for x in predefined_tags]):
+            element_type_classified = element_type
+            break
+
+    return element_type_classified
 
 
 # Predefined tags by type
