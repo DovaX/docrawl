@@ -119,35 +119,13 @@ def take_png_screenshot(browser, page, inp):
 
         try:
             root_element = browser.find_element(By.XPATH, '/html')
-            #string = browser.get_full_page_screenshot_as_file(filename)
-            #driver.find_element_by_tag_name('body').screenshot('web_screenshot4.png')
-    
-            screenshot=browser.get_full_page_screenshot_as_file(filename)
-            print(screenshot)
+
+            screenshot = browser.get_full_page_screenshot_as_file(filename)
             browser.execute_script("return arguments[0].scrollIntoView(true);", root_element)
 
-            #with open(filename, "w+") as fh:
-            #    fh.write(string)
+            docrawl_logger.info(f'Png screenshot created')
         except Exception as e:
-            print('Error while taking page screenshot!', e)
-
-    # elif type(browser) == webdriver.Chrome:
-    #     # Get params needed for fullpage screenshot
-    #     page_rect = browser.execute_cdp_cmd('Page.getLayoutMetrics', {})
-
-    #     # Set the width and height of the viewport to screenshot, same as the site's content size
-    #     screenshot_config = {'captureBeyondViewport': True,
-    #                          'fromSurface': True,
-    #                          'clip': {'width': page_rect['cssContentSize']['width'],
-    #                                   'height': page_rect['cssContentSize']['height'],
-    #                                   'x': 0,
-    #                                   'y': 0,
-    #                                   'scale': 1},
-    #                          }
-    #     # Dictionary with 1 key: data
-    #     string = browser.execute_cdp_cmd('Page.captureScreenshot', screenshot_config)['data']  # Taking screenshot
-    #     with open(filename, "w+") as fh:
-    #         fh.write(string)
+            docrawl_logger.error(f'Error while taking page png screenshot: {e}')
 
 
 def extract_page_source(browser, page, inp):
