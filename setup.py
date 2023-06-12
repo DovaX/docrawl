@@ -21,6 +21,6 @@ setuptools.setup(
     install_requires=[
           'scrapy','selenium>=4.0','crochet','pynput','keepvariable','selenium-wire','webdriver-manager','psutil','pandas'
      ],
-    python_requires='>=3.6',
+    python_requires='>=3.9',
 )
     
