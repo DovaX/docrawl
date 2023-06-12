@@ -32,12 +32,12 @@ class Element:
         return asdict(self)
 
 
-def classify_element_by_xpath(xpath: str) -> str:
-    xpath_split = re.split('//|/', xpath)  # Split XPath into parts
+def classify_element_by_xpath(xpath: str) -> ElementType:
+    xpath_split = re.split('//|/', xpath.removesuffix('/text()').rstrip('/'))  # Split XPath into parts
     last_element_in_xpath = xpath_split[-1]  # Last element in XPath
 
     # Default element's type
-    element_type_classified = 'element'
+    element_type_classified = ElementType.ELEMENT
 
     # Try to find last element in XPath in predefined tags to identify element name
     for element_type, predefined_tags in PREDEFINED_TAGS.items():
