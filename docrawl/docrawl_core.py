@@ -4,9 +4,7 @@
 # except:
 #    pass
 from docrawl.docrawl_logger import docrawl_logger
-from docrawl.elements import Element, ElementType, PREDEFINED_TAGS
 from docrawl.elements import *
-from docrawl.utils import set_scraping_data, flush_scraping_data
 from collections import UserDict
 import datetime
 import scrapy
@@ -14,7 +12,6 @@ import requests
 import time
 import pickle
 import os
-import shutil
 import re
 import psutil
 import lxml.html
