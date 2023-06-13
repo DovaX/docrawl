@@ -40,7 +40,14 @@ from webdriver_manager.firefox import GeckoDriverManager
 from webdriver_manager.chrome import ChromeDriverManager
 
 from scrapy.selector import Selector
-from keepvariable.keepvariable_core import VarSafe, kept_variables, save_variables, load_variable_safe
+from keepvariable.keepvariable_core import VarSafe, kept_variables, save_variables, load_variable_safe, KeepVariableDummyRedisServer
+
+from typing import Optional
+
+redis: Optional[KeepVariableDummyRedisServer] = None
+
+redis_key_webpage_elements = 'test_user:test_project:test_pipeline:scraping:elements'
+redis_key_screenshot = 'test_user:test_project:test_pipeline:scraping:screenshot'
 
 
 def click_class(browser, class_input, index=0, tag="div", wait1=1):
@@ -94,7 +101,7 @@ def take_screenshot(browser, page, inp):
     else:
         string = ""
 
-    set_scraping_data(string, "test_user:test_project:test_pipeline:scraping:screenshot")
+    redis.set(key=redis_key_screenshot, value=string)
     docrawl_logger.warning('SCRENSHOT CREATED')
 
 
@@ -162,15 +169,8 @@ def scan_web_page(browser, page, inp):
     context_xpath = inp['context_xpath']
     output_folder = inp['output_folder']
 
-
-
-    try:
-        shutil.rmtree(output_folder)
-        flush_scraping_data()
-    except:
-        pass
-    finally:
-        os.mkdir(output_folder)
+    # First removed old data
+    redis.set(key=redis_key_webpage_elements, value=[])
 
     # Dictionary with elements (XPaths, data)
     final_elements = {}
@@ -535,6 +535,7 @@ def scan_web_page(browser, page, inp):
             elements_tree.extend(tree.xpath(f'{prefix}{tag}'))
 
         if elements:
+            added_xpaths = []       # For deduplication of elements
             for i, element in enumerate(elements):
                 elem_name = f'{element_type}_{i}'
 
@@ -545,12 +546,11 @@ def scan_web_page(browser, page, inp):
                 try:
                     xpath = find_element_xpath(elements_tree, i)
 
-                    element_data = extract_element_data(element=element, xpath=xpath, element_type=element_type)
-                    element_c = Element(name=elem_name, type=element_type, rect=element.rect, xpath=xpath, data=element_data)
-                    #docrawl_logger.warning(element_data)
-                    #docrawl_logger.warning(element_c)
-                    #docrawl_logger.warning(element_c.dict())
-                    new_elements_all.append(element_c.dict())
+                    if xpath not in added_xpaths:
+                        element_data = extract_element_data(element=element, xpath=xpath, element_type=element_type)
+                        element_c = Element(name=elem_name, type=element_type, rect=element.rect, xpath=xpath, data=element_data)
+                        new_elements_all.append(element_c.dict())
+                        added_xpaths.append(xpath)
                     #serialize_and_append_data(f'{element_name}_{i}', element, xpath)
 
                 except Exception as e:
@@ -632,8 +632,7 @@ def scan_web_page(browser, page, inp):
     #
     # save_coordinates_of_elements(selectors, names, xpaths, data)
 
-    set_scraping_data(new_elements_all)
-
+    redis.set(key=redis_key_webpage_elements, value=new_elements_all)
     docrawl_logger.info(f'Scan Web Page function duration {timedelta_format(datetime.datetime.now(), time_start_f)}')
 
 
@@ -922,8 +921,7 @@ def extract_table_xpath(browser, page, inp):
     df.dropna(axis=0, how='all', inplace=True)
     df.to_excel(short_filename + '.xlsx')
 
-    with open(filename, 'wb') as pickle_file:
-        pickle.dump(df, pickle_file)
+    redis.set(key='test_user:test_project:test_pipeline:scraping:extracted_table', value=df)
 
 
 class BrowserMetaData(UserDict):
@@ -1004,6 +1002,9 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
         # self.browser = webdriver.PhantomJS(executable_path=PHANTOMJS_PATH, service_args=['--ignore-ssl-errors=true'])
         #super().__init__(*a, **kw)
         self.meta_data = BrowserMetaData()
+
+        global redis
+        redis = kw['redis']
 
         self.browser = self._initialise_browser()
 
