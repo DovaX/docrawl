@@ -215,7 +215,7 @@ def run_function(function, function_input):
 
 
 
-def run_spider(number, in_browser=True, driver='Firefox', redis=None):
+def run_spider(number, in_browser=True, driver='Firefox', kv_redis=None):
     """
     Starts crawler.
         :param in_browser: bool, show browser GUI (-headless option).
@@ -237,4 +237,4 @@ def run_spider(number, in_browser=True, driver='Firefox', redis=None):
 
     time.sleep(1)
 
-    crawler.crawl(docrawl_core.DocrawlSpider, redis=redis)
+    crawler.crawl(docrawl_core.DocrawlSpider, kv_redis=kv_redis)

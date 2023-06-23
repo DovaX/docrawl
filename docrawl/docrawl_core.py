@@ -41,10 +41,10 @@ from keepvariable.keepvariable_core import VarSafe, kept_variables, save_variabl
 
 from typing import Optional
 
-redis: Optional[KeepVariableDummyRedisServer] = None
+kv_redis: Optional[KeepVariableDummyRedisServer] = None
 
-redis_key_webpage_elements = 'test_user:test_project:test_pipeline:scraping:elements'
-redis_key_screenshot = 'test_user:test_project:test_pipeline:scraping:screenshot'
+kv_redis_key_webpage_elements = 'test_user:test_project:test_pipeline:scraping:elements'
+kv_redis_key_screenshot = 'test_user:test_project:test_pipeline:scraping:screenshot'
 
 
 def click_class(browser, class_input, index=0, tag="div", wait1=1):
@@ -98,7 +98,7 @@ def take_screenshot(browser, page, inp):
     else:
         string = ""
 
-    redis.set(key=redis_key_screenshot, value=string)
+    kv_redis.set(key=kv_redis_key_screenshot, value=string)
     docrawl_logger.warning('SCRENSHOT CREATED')
 
 
@@ -167,7 +167,7 @@ def scan_web_page(browser, page, inp):
     output_folder = inp['output_folder']
 
     # First removed old data
-    redis.set(key=redis_key_webpage_elements, value=[])
+    kv_redis.set(key=kv_redis_key_webpage_elements, value=[])
 
     # Dictionary with elements (XPaths, data)
     final_elements = {}
@@ -629,7 +629,7 @@ def scan_web_page(browser, page, inp):
     #
     # save_coordinates_of_elements(selectors, names, xpaths, data)
 
-    redis.set(key=redis_key_webpage_elements, value=new_elements_all)
+    kv_redis.set(key=kv_redis_key_webpage_elements, value=new_elements_all)
     docrawl_logger.info(f'Scan Web Page function duration {timedelta_format(datetime.datetime.now(), time_start_f)}')
 
 
@@ -918,7 +918,7 @@ def extract_table_xpath(browser, page, inp):
     df.dropna(axis=0, how='all', inplace=True)
     df.to_excel(short_filename + '.xlsx')
 
-    redis.set(key='test_user:test_project:test_pipeline:scraping:extracted_table', value=df)
+    kv_redis.set(key='test_user:test_project:test_pipeline:scraping:extracted_table', value=df)
 
 
 class BrowserMetaData(UserDict):
@@ -1000,8 +1000,8 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
         #super().__init__(*a, **kw)
         self.meta_data = BrowserMetaData()
 
-        global redis
-        redis = kw['redis']
+        global kv_redis
+        kv_redis = kw['kv_redis']
 
         self.browser = self._initialise_browser()
 
