@@ -43,8 +43,8 @@ from typing import Optional
 
 kv_redis: Optional[KeepVariableDummyRedisServer] = None
 
-kv_redis_key_webpage_elements = 'test_user:test_project:test_pipeline:scraping:elements'
-kv_redis_key_screenshot = 'test_user:test_project:test_pipeline:scraping:screenshot'
+kv_redis_key_webpage_elements = 'elements'
+kv_redis_key_screenshot = 'screenshot'
 
 
 def click_class(browser, class_input, index=0, tag="div", wait1=1):
@@ -516,7 +516,6 @@ def scan_web_page(browser, page, inp):
         """
 
         tags = PREDEFINED_TAGS[element_type] if not custom_tags else custom_tags
-        docrawl_logger.warning(tags)
         elements = []
         elements_tree = []
 
@@ -998,8 +997,16 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
         #super().__init__(*a, **kw)
         self.meta_data = BrowserMetaData()
 
+        # TODO: get rid of global variables
         global kv_redis
+        global kv_redis_key_webpage_elements
+        global kv_redis_key_screenshot
+
         kv_redis = kw['kv_redis']
+        kv_redis_keys = kw['kv_redis_keys']
+
+        kv_redis_key_webpage_elements = kv_redis_keys.get('elements', kv_redis_key_webpage_elements)
+        kv_redis_key_screenshot = kv_redis_keys.get('screenshot', kv_redis_key_screenshot)
 
         self.browser = self._initialise_browser()
 
