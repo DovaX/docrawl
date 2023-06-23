@@ -41,7 +41,7 @@ def take_png_screenshot(filename):
     """
 
     inp = {
-        'filename': filename
+        'filename': str(filename)       # Cast to str, e.g. when Path object is passed
     }
     run_function('take_png_screenshot', inp)
 
