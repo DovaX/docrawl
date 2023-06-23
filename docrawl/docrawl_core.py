@@ -4,7 +4,7 @@
 # except:
 #    pass
 from docrawl.docrawl_logger import docrawl_logger
-from docrawl.elements import *
+from docrawl.elements import Element, ElementType, classify_element_by_xpath, PREDEFINED_TAGS
 from collections import UserDict
 import datetime
 import scrapy
@@ -508,26 +508,24 @@ def scan_web_page(browser, page, inp):
 
     new_elements_all = []
 
-    def find_elements(tags, element_type: ElementType, custom_tag=False):
+    def find_elements(element_type: ElementType, custom_tags: list = None):
         """
         Finds elements on page using Selenium Selector and HTML Parser
-            :param tags: list of tags
             :param element_type: type of element (table, bullet, text, headline, link, ...)
-            :param custom_tag: if provided tag is custom (not predefined)
+            :param custom_tags: list of custom tags
         """
 
+        tags = PREDEFINED_TAGS[element_type] if not custom_tags else custom_tags
+        docrawl_logger.warning(tags)
         elements = []
         elements_tree = []
 
         # If tag is not predefined -> there is no need to add prefix
-        if not custom_tag:
-            prefix = '//'
-        else:
-            prefix = ''
+        prefix = '' if custom_tags else '//'
 
         for tag in tags:
             elements.extend(browser.find_elements(By.XPATH, f'{prefix}{tag}'))
-            if custom_tag:
+            if custom_tags:
                 tag = tag.replace('/body/', '/div/')  # Otherwise, elements_tree will be empty
             elements_tree.extend(tree.xpath(f'{prefix}{tag}'))
 
@@ -568,31 +566,31 @@ def scan_web_page(browser, page, inp):
 
     ##### TABLES SECTION #####
     if incl_tables:
-        find_elements(TABLE_TAGS, element_type=ElementType.TABLE)
+        find_elements(element_type=ElementType.TABLE)
 
     ##### BULLET SECTION #####
     if incl_bullets:
-        find_elements(BULLET_TAGS, element_type=ElementType.BULLET)
+        find_elements(element_type=ElementType.BULLET)
 
     ##### TEXTS SECTION #####
     if incl_texts:
-        find_elements(TEXT_TAGS, element_type=ElementType.TEXT)
+        find_elements(element_type=ElementType.TEXT)
 
     ##### HEADLINES SECTION #####
     if incl_headlines:
-        find_elements(HEADLINE_TAGS, element_type=ElementType.HEADLINE)
+        find_elements(element_type=ElementType.HEADLINE)
 
     ##### LINKS SECTION #####
     if incl_links:
-        find_elements(LINK_TAGS, element_type=ElementType.LINK)
+        find_elements(element_type=ElementType.LINK)
 
     ##### IMAGES SECTION #####
     if incl_images:
-        find_elements(IMAGE_TAGS, element_type=ElementType.IMAGE)
+        find_elements(element_type=ElementType.IMAGE)
 
     ##### BUTTONS SECTION #####
     if incl_buttons:
-        find_elements(BUTTON_TAGS, element_type=ElementType.BUTTON)
+        find_elements(element_type=ElementType.BUTTON)
 
     ##### CUSTOM XPATH SECTION #####
     if by_xpath:
@@ -606,19 +604,19 @@ def scan_web_page(browser, page, inp):
             # With text() at the end will not work
             xpath = elem.removesuffix('/text()').rstrip('/')
 
-            custom_tag = [xpath]
+            custom_tags = [xpath]
             element_type = classify_element_by_xpath(xpath)
 
-            find_elements(custom_tag, element_type, custom_tag=True)
+            find_elements(element_type=element_type, custom_tags=custom_tags)
 
     if context_xpath:
         try:
-            find_elements([context_xpath], ElementType.CONTEXT, custom_tag=True)
+            find_elements(element_type=ElementType.CONTEXT, custom_tags=[context_xpath])
         except Exception as e:
             docrawl_logger.error(f'Error while retrieving context elements: {e}')
 
     if cookies_xpath:
-        find_elements([cookies_xpath], ElementType.COOKIES, custom_tag=True)
+        find_elements(element_type=ElementType.COOKIES, custom_tags=[cookies_xpath])
 
     ##### SAVING COORDINATES OF ELEMENTS #####
 
