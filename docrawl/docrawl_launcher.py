@@ -3,6 +3,7 @@ from scrapy.crawler import CrawlerRunner
 from crochet import setup
 import keepvariable.keepvariable_core as kv
 import time
+from typing import Optional
 from docrawl.docrawl_logger import docrawl_logger
 
 
@@ -215,11 +216,13 @@ def run_function(function, function_input):
 
 
 
-def run_spider(number, in_browser=True, driver='Firefox', redis=None):
+def run_spider(number, in_browser=True, driver='Firefox', kv_redis=None, kv_redis_keys=Optional[dict]):
     """
     Starts crawler.
         :param in_browser: bool, show browser GUI (-headless option).
         :param driver: string, driver instance to use (Firefox/Geckodriver, Chrome)
+        :param kv_redis: instance of KeepVariableRedis, used to store scraped data
+        :param kv_redis_keys: dictionary with redis keys (naming)
 
         Note: param in_browser is reverse to -headless option, meaning:
             - in_browser=True -> no -headless in driver options
@@ -237,4 +240,4 @@ def run_spider(number, in_browser=True, driver='Firefox', redis=None):
 
     time.sleep(1)
 
-    crawler.crawl(docrawl_core.DocrawlSpider, redis=redis)
+    crawler.crawl(docrawl_core.DocrawlSpider, kv_redis=kv_redis, kv_redis_keys=kv_redis_keys)
