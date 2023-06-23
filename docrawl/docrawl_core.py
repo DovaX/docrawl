@@ -47,11 +47,11 @@ kv_redis_key_webpage_elements = 'elements'
 kv_redis_key_screenshot = 'screenshot'
 
 
-def click_class(browser, class_input, index=0, tag="div", wait1=1):
-    name_input = browser.find_elements_by_xpath('//' + tag + '[@class="' + class_input + '"]')
+def click_class(browser, class_input, index=0, tag="div"):
+    name_input = browser.browser.find_element(By.XPATH, f'//{tag}[@class="{class_input}"]')
     name_input[index].click()
-    time.sleep(wait1)
-    return (name_input)
+
+    return name_input
 
 
 def take_screenshot(browser, page, inp):
@@ -800,7 +800,7 @@ def click_xpath(browser, page, inp):
 def click_name(browser, page, inp):
     text = inp['text']
 
-    browser.find_element_by_link_text(text).click()
+    browser.find_element(By.LINK_TEXT(text)).click()
 
 
 def extract_xpath(browser, page, inp):
