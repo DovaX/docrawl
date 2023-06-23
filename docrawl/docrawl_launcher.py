@@ -13,18 +13,22 @@ def load_website(url):
     spider_requests = {"url": url, "loaded": False}
 
     spider_requests = kv.VarSafe(spider_requests, "request", "request")
+    docrawl_logger.info(f"SPIDER_REQUESTS: {spider_requests}")
     kv.save_variables(kv.kept_variables, "browser_meta_data.kpv")
 
+    # docrawl_core.spider_requests={"url":url,"loaded":False}
 
-def take_screenshot(filename):
+
+def take_screenshot():
     """
     Launches take_screenshot from core.
-        :param filename: string, output filename (where to save the screenshot)
     """
 
-    inp = {
-        'filename': filename
-    }
+    # inp = {
+    #     'filename': filename
+    # }
+
+    inp = None
 
     run_function('take_screenshot', inp)
 
@@ -211,7 +215,7 @@ def run_function(function, function_input):
 
 
 
-def run_spider(number, in_browser=True, driver='Firefox'):
+def run_spider(number, in_browser=True, driver='Firefox', redis=None):
     """
     Starts crawler.
         :param in_browser: bool, show browser GUI (-headless option).
@@ -233,4 +237,4 @@ def run_spider(number, in_browser=True, driver='Firefox'):
 
     time.sleep(1)
 
-    crawler.crawl(docrawl_core.DocrawlSpider)
+    crawler.crawl(docrawl_core.DocrawlSpider, redis=redis)
