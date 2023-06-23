@@ -915,7 +915,7 @@ def extract_table_xpath(browser, page, inp):
     df.dropna(axis=0, how='all', inplace=True)
     df.to_excel(short_filename + '.xlsx')
 
-    kv_redis.set(key='test_user:test_project:test_pipeline:scraping:extracted_table', value=df)
+    kv_redis.set(key='extracted_table', value=df)
 
 
 class BrowserMetaData(UserDict):
