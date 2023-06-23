@@ -932,11 +932,6 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
     }
 
     def __init__(self, *a, **kw):
-        # can be replaced for debugging with browser = webdriver.FireFox()
-        # self.browser = webdriver.PhantomJS(executable_path=PHANTOMJS_PATH, service_args=['--ignore-ssl-errors=true'])
-        #super().__init__(*a, **kw)
-        self.meta_data = BrowserMetaData()
-
         # TODO: get rid of global variables
         global kv_redis
         global kv_redis_key_webpage_elements
@@ -948,33 +943,31 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
         kv_redis_key_webpage_elements = kv_redis_keys.get('elements', kv_redis_key_webpage_elements)
         kv_redis_key_screenshot = kv_redis_keys.get('screenshot', kv_redis_key_screenshot)
 
+        self.kv_redis = kv_redis
+        self.kv_redis_keys = kv_redis_keys
+
         self.browser = self._initialise_browser()
-
-        browser_info = {
-            'driver': self.driver_type,
-            'headless': self.headless,
-            'browser_pid': self.browser_pid
-        }
-
-        self.meta_data['browser'] = browser_info
+        browser_meta_data = kv_redis.get('browser_meta_data')
+        browser_meta_data['browser']['pid'] = self.browser_pid
+        kv_redis.set('browser_meta_data', browser_meta_data)
 
         self.start_requests()
 
     def _initialise_browser(self):
         try:
-            self.driver_type = self.meta_data['browser']['driver']
+            self.driver_type = self.kv_redis.get('browser_meta_data')['browser']['driver']
         except Exception as e:
             docrawl_logger.error(f'Error while loading driver type information: {e}')
             self.driver_type = 'Firefox'
 
         try:
-            self.headless = self.meta_data['browser']['headless']
+            self.headless = self.kv_redis.get('browser_meta_data')['browser']['headless']
         except Exception as e:
             docrawl_logger.error(f'Error while loading headless mode information: {e}')
             self.headless = False
 
         try:
-            proxy_info = self.meta_data['proxy']
+            proxy_info = self.kv_redis.get('browser_meta_data')['proxy']
         except Exception as e:
             docrawl_logger.error(f'Error while loading proxy information: {e}')
             proxy_info = None
@@ -1094,26 +1087,28 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
             yield scrapy.Request(url=URLS[i], callback=FUNCTIONS[i])  # yield
 
     def parse(self, response):
-        self.browser.get(self.meta_data['request']['url'])
+        self.browser.get(self.kv_redis.get('browser_meta_data')['request']['url'])
 
         docrawl_core_done = False
         page = Selector(text=self.browser.page_source)
 
         while not docrawl_core_done:
-            spider_request = self.meta_data['request']
-            spider_function = self.meta_data['function']
+            browser_meta_data = self.kv_redis.get('browser_meta_data')
+
+            spider_request = browser_meta_data['request']
+            spider_function = browser_meta_data['function']
 
             try:
                 time.sleep(1)
                 docrawl_logger.info('Docrawl core loop')
-                docrawl_logger.info(f'Browser meta data: {self.meta_data}')
+                docrawl_logger.info(f'Browser meta data: {browser_meta_data}')
 
                 if not spider_request['loaded']:
                     self.browser.get(spider_request['url'])
                     page = Selector(text=self.browser.page_source)
 
                     spider_request['loaded'] = True
-                    self.meta_data['request'] = spider_request
+                    browser_meta_data['request'] = spider_request
 
                 if not spider_function['done']:
                     function_str = spider_function['name']
@@ -1128,7 +1123,7 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                         function(inp)
 
                     spider_function['done'] = True
-                    self.meta_data['function'] = spider_function
+                    browser_meta_data['function'] = spider_function
 
                 page = Selector(text=self.browser.page_source)
             except KeyboardInterrupt:
