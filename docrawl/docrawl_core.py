@@ -128,8 +128,6 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
 
         self.browser.set_window_size(window_size_x, 980)
 
-        self._determine_browser_pid()
-
         return self.browser
 
     def __del__(self):
