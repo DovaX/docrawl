@@ -1111,3 +1111,5 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                 page = Selector(text=self.browser.page_source)
             except KeyboardInterrupt:
                 break
+            except Exception as e:
+                docrawl_logger.error(f'Error while executing docrawl loop: {e}')
