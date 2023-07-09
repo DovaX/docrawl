@@ -1,11 +1,5 @@
-# import sys #PATH initialization of modules
-# try:
-#    sys.path.append("C:\\Users\\EUROCOM\\Documents\\Git\\DovaX")
-# except:
-#    pass
 from docrawl.docrawl_logger import docrawl_logger
 from docrawl.elements import Element, ElementType, classify_element_by_xpath, PREDEFINED_TAGS
-from collections import UserDict
 import datetime
 import scrapy
 import requests
