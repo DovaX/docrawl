@@ -1111,20 +1111,3 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                 page = Selector(text=self.browser.page_source)
             except KeyboardInterrupt:
                 break
-
-
-FUNCTIONS = {"click_xpath": click_xpath,
-             "click_name": click_name,
-             "extract_xpath": extract_xpath,
-             "extract_multiple_xpaths": extract_multiple_xpaths,
-             "extract_table_xpath": extract_table_xpath,
-             "get_current_url": get_current_url,
-             "scan_web_page": scan_web_page,
-             "close_browser": close_browser,
-             "extract_page_source": extract_page_source,
-             "wait_until_element_is_located": wait_until_element_is_located,
-             "take_screenshot": take_screenshot,
-             "take_png_screenshot": take_png_screenshot,
-             "scroll_web_page": scroll_web_page,
-             "download_images": download_images,
-             }
