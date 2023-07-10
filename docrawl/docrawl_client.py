@@ -114,7 +114,7 @@ class DocrawlClient:
         else:
             docrawl_logger.error('Function was not finished')
 
-    def _execute_function(self, function, function_input=None, timeout=10):
+    def _execute_function(self, function, function_input=None, timeout=30):
         docrawl_logger.info(f'Running function {function} with input: {function_input}')
 
         if self.is_browser_active():
@@ -128,14 +128,14 @@ class DocrawlClient:
         else:
             docrawl_logger.warning('Browser instance is not active')
 
-    def run_spider(self, driver='Firefox', in_browser: bool = False, ):
+    def run_spider(self, driver='Firefox', in_browser: bool = False):
         self._initialize_browser_metadata(driver=driver, headless=not in_browser)
 
         setup()
         crawler = CrawlerRunner()
         crawler.crawl(DocrawlSpider, docrawl_client=self)
 
-    def load_website(self, url):
+    def load_website(self, url, timeout=20):
         if "http" not in url:
             url = "http://" + url
 
@@ -144,12 +144,12 @@ class DocrawlClient:
         browser_meta_data['request'] = request
         self.set_browser_meta_data(browser_meta_data)
 
-        self._wait_until_page_is_loaded(20)
+        self._wait_until_page_is_loaded(timeout)
 
-    def take_screenshot(self):
-        self._execute_function('take_screenshot')
+    def take_screenshot(self, timeout=20):
+        self._execute_function('take_screenshot', timeout)
 
-    def take_png_screenshot(self, filename):
+    def take_png_screenshot(self, filename, timeout=20):
         """
         Launches take_screenshot from core.
             :param filename: string, output filename (where to save the screenshot)
@@ -159,9 +159,9 @@ class DocrawlClient:
             'filename': str(filename)  # Cast to str, e.g. when Path object is passed
         }
 
-        self._execute_function('take_png_screenshot', inp)
+        self._execute_function('take_png_screenshot', inp, timeout)
 
-    def extract_page_source(self, filename):
+    def extract_page_source(self, filename, timeout=20):
         """
         Launches extract_page_source from core.
             :param filename: string, name of file that will be used for storing page source
@@ -171,12 +171,12 @@ class DocrawlClient:
             'filename': filename
         }
 
-        self._execute_function('extract_page_source', inp)
+        self._execute_function('extract_page_source', inp, timeout)
 
     def scan_web_page(self, incl_tables=False, incl_bullets=False, incl_texts=False, incl_headlines=False,
                       incl_links=False,
                       incl_images=False, incl_buttons=False, by_xpath=None, context_xpath=None, cookies_xpath=None,
-                      output_folder='output/scraped_data'):
+                      output_folder='output/scraped_data', timeout=30):
         """
         Launches find_tables function from core.
             :param incl_tables: boolean, search for tables
@@ -204,9 +204,9 @@ class DocrawlClient:
             'output_folder': output_folder,
         }
 
-        self._execute_function('scan_web_page', inp, timeout=20)
+        self._execute_function('scan_web_page', inp, timeout)
 
-    def wait_until_element_is_located(self, xpath):
+    def wait_until_element_is_located(self, xpath, timeout=20):
         """
         Launches wait_until_element_is_located function from core.
             :param xpath: str, xpath of element to be located
@@ -216,9 +216,9 @@ class DocrawlClient:
             'xpath': xpath
         }
 
-        self._execute_function('wait_until_element_is_located', inp)
+        self._execute_function('wait_until_element_is_located', inp, timeout)
 
-    def get_current_url(self, filename):
+    def get_current_url(self, filename, timeout=20):
         """
         Launches get_current_url function from core.
             :param filename: string, name of file that will be used for storing the URL
@@ -228,14 +228,14 @@ class DocrawlClient:
             'filename': filename
         }
 
-        self._execute_function('get_current_url', inp)
+        self._execute_function('get_current_url', inp, timeout)
 
-    def close_browser(self):
+    def close_browser(self, timeout=10):
         """
         Launches close_browser function from core.
         """
 
-        self._execute_function('close_browser')
+        self._execute_function('close_browser', timeout)
 
         pid = self.get_browser_meta_data()['browser']['pid']
 
@@ -244,7 +244,7 @@ class DocrawlClient:
 
         docrawl_logger.warning(f'Is browser closed: {self.is_browser_active()}')
 
-    def scroll_web_page(self, scroll_to, scroll_by, scroll_max):
+    def scroll_web_page(self, scroll_to, scroll_by, scroll_max, timeout=20):
         """
         Launches scroll_web_page function from core.
             :param scroll_to: string, scroll direction (Up/Down)
@@ -258,9 +258,9 @@ class DocrawlClient:
             'scroll_max': scroll_max
         }
 
-        self._execute_function('scroll_web_page', inp)
+        self._execute_function('scroll_web_page', inp, timeout)
 
-    def download_images(self, image_xpath, filename):
+    def download_images(self, image_xpath, filename, timeout=20):
         """
         Launches download_image function from core.
             :param image_xpath: string, url of image
@@ -272,26 +272,26 @@ class DocrawlClient:
             'filename': filename,
         }
 
-        self._execute_function('download_images', inp)
+        self._execute_function('download_images', inp, timeout)
 
-    def extract_xpath(self, xpath, filename, write_in_file_mode="w+"):
+    def extract_xpath(self, xpath, filename, write_in_file_mode="w+", timeout=20):
         inp = {
             'xpath': xpath,
             'filename': filename,
             'write_in_file_mode': write_in_file_mode
         }
 
-        self._execute_function('extract_xpath', inp)
+        self._execute_function('extract_xpath', inp, timeout)
 
-    def extract_multiple_xpath(self, xpaths, filename="extracted_data.xlsx"):
+    def extract_multiple_xpath(self, xpaths, filename="extracted_data.xlsx", timeout=20):
         inp = {
             'xpaths': xpaths,
             'filename': filename
         }
 
-        self._execute_function('extract_multiple_xpaths', inp)
+        self._execute_function('extract_multiple_xpaths', inp, timeout)
 
-    def extract_table_xpath(self, xpath_row, xpath_col, first_row_header, filename="extracted_data.xlsx"):
+    def extract_table_xpath(self, xpath_row, xpath_col, first_row_header, filename="extracted_data.xlsx", timeout=20):
         inp = {
             'xpath_row': xpath_row,
             'xpath_col': xpath_col,
@@ -299,21 +299,21 @@ class DocrawlClient:
             'filename': filename
         }
 
-        self._execute_function('extract_table_xpath', inp)
+        self._execute_function('extract_table_xpath', inp, timeout)
 
-    def click_xpath(self, xpath):
+    def click_xpath(self, xpath, timeout=20):
         inp = {
             'xpath': xpath
         }
 
-        self._execute_function('click_xpath', inp)
+        self._execute_function('click_xpath', inp, timeout)
 
-    def click_name(self, text):
+    def click_name(self, text, timeout=20):
         inp = {
             'text': text
         }
 
-        self._execute_function('click_name', inp)
+        self._execute_function('click_name', inp, timeout)
 
     def __exit__(self):
         self.close_browser()
