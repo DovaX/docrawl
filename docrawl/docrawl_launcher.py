@@ -1,3 +1,10 @@
+"""
+
+TO BE DEPRECATED
+
+"""
+
+
 import docrawl.docrawl_core as docrawl_core
 from scrapy.crawler import CrawlerRunner
 from crochet import setup
