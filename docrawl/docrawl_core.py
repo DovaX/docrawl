@@ -373,36 +373,6 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
 
             return result
 
-        def save_coordinates_of_elements(selectors, names, xpaths, data):
-            """
-            Saves coordinates of elements (tables, bullet lists, text elements, headlines, links), that could be potentially exported.
-            """
-            elems_pos = []
-
-            existing_xpaths = []
-
-            for selector, name, xpath, data in zip(selectors, names, xpaths, data):
-
-                # Deduplicate elements by xpath (on some pages the same element is selected twice)
-                if xpath in existing_xpaths:
-                    continue
-
-                elems_pos.append({'rect': selector.rect,
-                                  'name': name,
-                                  'xpath': xpath,
-                                  'data': data})
-
-                existing_xpaths.append(xpath)
-
-            elements_positions = {"elements_positions": elems_pos}
-            filename = "elements_positions.kpv"
-            with open(filename, "w+", encoding="utf8",
-                      errors='ignore') as file:  # TODO: improve KPV to enable multiple keep variable files -> it collided with browser_metadata_kpv,
-                file.write(str(elements_positions))
-
-            # elements_positions = VarSafe(elements_positions, 'elements_positions', 'elements_positions')
-            # save_variables(kept_variables, 'elements_positions.kpv')
-
         def extract_element_data(element: WebElement, xpath: str, element_type: ElementType):
             if element_type in [ElementType.LINK, ElementType.BUTTON]:
                 xpath_new = xpath + '//text()'
@@ -518,148 +488,6 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
 
             return element_data
 
-        def serialize_and_append_data(element_name, selector: WebElement, xpath):
-            """
-            Serializes data behind the element and updates dictionary with final elements
-                :param element_name: variable name to save
-                :param selector: Selenium Selector
-                :param xpath: XPath of element
-            """
-
-            path = os.path.join(output_folder, element_name)
-
-            if 'table' in element_name:
-                table_2 = self.page.xpath(xpath)[0]
-
-                result = []  # data
-                titles = []  # columns' names
-                tr_tags = table_2.xpath('.//tr')  # <tr> = table row
-                th_tags = table_2.xpath('.//th')  # <th> = table header (non-essential, so if any)
-
-                for th_tag in th_tags:
-                    titles.append(''.join(th_tag.xpath('.//text()').extract()).replace('\n', '').replace('\t', ''))
-
-                for tr_tag in tr_tags:
-                    td_tags = tr_tag.xpath('.//td')  # <td> = table data
-
-                    row = []
-
-                    '''
-                        # Sometimes between td tags there more than 1 tag with text, so that would
-                        # be proceeded as separate values despite of fact it should be in one cell.
-                        # That's why the further loop is needed. The result of it is a list of strings,
-                        # that should be in one cell later in dataframe.
-
-                        # Example: 
-
-                        <td>
-                            <a>Text 1</a>
-                            <a>Text 2</a>
-                        </td>
-
-                        # Without loop it would be two strings ("Text 1", "Text 2") and thus they 
-                        # will be in 2 differrent columns. With loop the result would be ["Text 1", "Text 2"] 
-                        # and after join method - "Text 1 Text 2" in just one cell (column).
-                   '''
-
-                    for td_tag in td_tags:
-                        data = td_tag.xpath('.//text()').getall()
-
-                        '''
-                            Some table cells include \n or unicode symbols,
-                            so that creates unneccesary "empty" columns and thus
-                            the number of columns doesn't meet the real one
-                        '''
-
-                        data = [string_cleaner(x) for x in data]  # Cleaning the text
-
-                        # data = list(filter(None, data))  # Deleting empty strings
-
-                        row.append('\n'.join(data))  # Making one string value from list
-
-                    result.append(row)
-
-                    if not titles:  # If table doesn't have <th> tags -> use first row as titles
-                        titles = row  # TODO: IF USER SELECTS THE TABLE, ASK HIM, WHETHER HE WANTS TO HAVE 1 ROW AS TITLES
-
-                try:
-                    # If number of columns' names (titles) is the same as number of columns
-                    df = pd.DataFrame(result, columns=titles)
-                except Exception:
-                    df = pd.DataFrame(result)
-
-                df = df.iloc[1:, :]  # Removing empty row at the beginning of dataframe
-
-                df.dropna(axis=0, how='all', inplace=True)
-
-                # If dataframe is not empty
-                if not df.dropna().empty and len(df.columns) > 1 and len(df) > 1:
-                    # Serialize DataFrame
-
-                    with open(path + '.pickle', 'wb') as pickle_file:
-                        pickle.dump(df, pickle_file)
-
-            elif 'bullet' in element_name:
-                data = process_bullet(xpath)
-                xpath += '//li//text()'
-
-                if len(data) > 1:
-                    with open(path + '.pickle', 'wb') as pickle_file:
-                        pickle.dump(data, pickle_file)
-
-            elif 'image' in element_name:
-                xpath += '/@src'
-                data = self.page.xpath(xpath).extract()[0]
-
-                if data:
-                    # Handle images with relative path. E.g. images/logo.png
-                    if not any([data.startswith(x) for x in ['http', 'www']]):
-                        data = url_pattern.match(self.browser.current_url).group(1) + data.replace('./', '')
-
-                    with open(path + '.pickle', 'wb') as pickle_file:
-                        pickle.dump(data, pickle_file)
-            else:
-                if 'link' in element_name:
-                    # Link tag may contain 2 types od data: link itself (href) and text, so prepare both
-                    xpath_href = xpath + '/@href'
-                    xpath_text = xpath + '//text()'
-
-                    data = {
-                        'link': ''.join(self.page.xpath(xpath_href).extract()).strip(),
-                        'text': ''.join(self.page.xpath(xpath_text).extract()).strip()
-                    }
-
-                elif 'button' in element_name:
-                    data = ''.join(self.page.xpath(xpath).extract()).strip()
-                else:
-                    xpath += '//text()'
-
-                    # Try to extract text from element
-                    try:
-                        data = ''.join(self.page.xpath(xpath).extract()).strip()
-                    # Extract element otherwise
-                    except:
-                        xpath = xpath.removesuffix('//text()')
-                        data = ''.join(self.page.xpath(xpath).extract()).strip()
-
-                if len(data) > 0:
-                    with open(path + '.pickle', 'wb') as pickle_file:
-                        pickle.dump(data, pickle_file)
-
-            if 'context' in element_name:
-                data = None
-            else:
-                try:
-                    data = pickle_file.name
-                except Exception as e:
-                    data = None
-                    docrawl_logger.error(f'Error while retrieving file with data: {e}')
-
-            final_elements.update({element_name:
-                                       {'selector': selector,
-                                        'data': data,
-                                        'xpath': xpath}})
-
         new_elements_all = []
 
         def find_elements(element_type: ElementType, custom_tags: list = None):
@@ -773,13 +601,6 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
             find_elements(element_type=ElementType.COOKIES, custom_tags=[cookies_xpath])
 
         ##### SAVING COORDINATES OF ELEMENTS #####
-
-        # names = list(final_elements.keys())
-        # selectors = [x['selector'] for x in final_elements.values()]
-        # xpaths = [x['xpath'] for x in final_elements.values()]
-        # data = [x['data'] for x in final_elements.values()]
-        #
-        # save_coordinates_of_elements(selectors, names, xpaths, data)
 
         self.docrawl_client.set_browser_scanned_elements(new_elements_all)
         docrawl_logger.info(
