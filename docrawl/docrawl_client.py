@@ -147,7 +147,7 @@ class DocrawlClient:
         self._wait_until_page_is_loaded(timeout)
 
     def take_screenshot(self, timeout=20):
-        self._execute_function('take_screenshot', timeout)
+        self._execute_function('take_screenshot', None, timeout)
 
     def take_png_screenshot(self, filename, timeout=20):
         """
@@ -235,7 +235,7 @@ class DocrawlClient:
         Launches close_browser function from core.
         """
 
-        self._execute_function('close_browser', timeout)
+        self._execute_function('close_browser', None, timeout)
 
         pid = self.get_browser_meta_data()['browser']['pid']
 
