@@ -60,22 +60,26 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
         self.start_requests()
 
     def _initialise_browser(self):
+        browser_meta_data = self.docrawl_client.get_browser_meta_data()
+
+        docrawl_logger.info(f'Browser settings: {browser_meta_data}')
+
         try:
-            self.driver_type = self.kv_redis.get('browser_meta_data')['browser']['driver']
+            self.driver_type = browser_meta_data['browser']['driver']
         except Exception as e:
             docrawl_logger.error(f'Error while loading driver type information: {e}')
             self.driver_type = 'Firefox'
 
         try:
-            self.headless = self.kv_redis.get('browser_meta_data')['browser']['headless']
+            self.headless = browser_meta_data['browser']['headless']
         except Exception as e:
             docrawl_logger.error(f'Error while loading headless mode information: {e}')
             self.headless = False
 
         try:
-            proxy_info = self.kv_redis.get('browser_meta_data')['proxy']
+            proxy_info = browser_meta_data['browser']['proxy']
         except Exception as e:
-            docrawl_logger.error(f'Error while loading proxy information: {e}')
+            docrawl_logger.warning(f'Error while loading proxy information: {e}')
             proxy_info = None
 
         if self.driver_type == 'Firefox':
@@ -169,20 +173,20 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
         return sw_options
 
     def _determine_browser_pid(self):
-        self.browser_pid = None
+        browser_pid = None
+
         try:
             if self.driver_type == 'Firefox':
-                self.browser_pid = self.browser.capabilities['moz:processID']
+                browser_pid = self.browser.capabilities['moz:processID']
             elif self.driver_type == 'Chrome':
                 self.browser.service.process
-                browser_pid = psutil.Process(self.browser.service.process.pid)
-                self.browser_pid = browser_pid.pid
+                browser_pid = psutil.Process(self.browser.service.process.pid).pid
 
-            # self.browser_pid = VarSafe(self.browser_pid, "browser_pid", "browser_pid")
-            # save_variables(kept_variables, "scr_vars.kpv")
-            docrawl_logger.success(f'Browser PID: {self.browser_pid}')
+            docrawl_logger.success(f'Browser PID: {browser_pid}')
         except Exception as e:
             docrawl_logger.error(f'Error while determining browser PID: {e}')
+
+        return browser_pid
 
     def start_requests(self):
         URLS = ['https://www.forloop.ai']
@@ -1062,45 +1066,41 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
         self.docrawl_client.kv_redis.set(key='extracted_table', value=df)
 
     def parse(self, response):
-        self.browser.get(self.kv_redis.get('browser_meta_data')['request']['url'])
+        self.browser.get(self.docrawl_client.get_browser_meta_data()['request']['url'])
 
         docrawl_core_done = False
-        page = Selector(text=self.browser.page_source)
 
         while not docrawl_core_done:
-            browser_meta_data = self.kv_redis.get('browser_meta_data')
-
+            browser_meta_data = self.docrawl_client.get_browser_meta_data()
             spider_request = browser_meta_data['request']
             spider_function = browser_meta_data['function']
 
             try:
                 time.sleep(1)
                 docrawl_logger.info('Docrawl core loop')
-                docrawl_logger.info(f'Browser meta data: {browser_meta_data}')
 
                 if not spider_request['loaded']:
                     self.browser.get(spider_request['url'])
-                    page = Selector(text=self.browser.page_source)
+                    self.page = Selector(text=self.browser.page_source)
 
                     spider_request['loaded'] = True
                     browser_meta_data['request'] = spider_request
 
+                    self.docrawl_client.set_browser_meta_data(browser_meta_data)
+
                 if not spider_function['done']:
                     function_str = spider_function['name']
-                    function = eval(function_str)
 
                     inp = spider_function['input']
                     docrawl_logger.info(f'Function input from docrawl core: {inp}')
 
-                    if function_str in FUNCTIONS.keys():
-                        FUNCTIONS[function_str](browser=self.browser, page=page, inp=inp)
-                    else:
-                        function(inp)
+                    getattr(self, f'_{function_str}')(inp=inp)
 
                     spider_function['done'] = True
                     browser_meta_data['function'] = spider_function
 
-                page = Selector(text=self.browser.page_source)
+                    self.docrawl_client.set_browser_meta_data(browser_meta_data)
+
             except KeyboardInterrupt:
                 break
             except Exception as e:
