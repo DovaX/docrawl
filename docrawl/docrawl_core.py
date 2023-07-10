@@ -46,24 +46,16 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
     }
 
     def __init__(self, *a, **kw):
-        # TODO: get rid of global variables
-        global kv_redis
-        global kv_redis_key_webpage_elements
-        global kv_redis_key_screenshot
+        self.docrawl_client = kw['docrawl_client']
 
-        kv_redis = kw['kv_redis']
-        kv_redis_keys = kw['kv_redis_keys']
-
-        kv_redis_key_webpage_elements = kv_redis_keys.get('elements', kv_redis_key_webpage_elements)
-        kv_redis_key_screenshot = kv_redis_keys.get('screenshot', kv_redis_key_screenshot)
-
-        self.kv_redis = kv_redis
-        self.kv_redis_keys = kv_redis_keys
+        self.kv_redis_key_screenshot = self.docrawl_client.kv_redis_keys.get('screenshot', 'screenshot')
+        self.kv_redis_key_elements = self.docrawl_client.kv_redis_keys.get('elements', 'elements')
 
         self.browser = self._initialise_browser()
-        browser_meta_data = kv_redis.get('browser_meta_data')
-        browser_meta_data['browser']['pid'] = self.browser_pid
-        kv_redis.set('browser_meta_data', browser_meta_data)
+        browser_meta_data = self.docrawl_client.get_browser_meta_data()
+        browser_meta_data['browser']['pid'] = self._determine_browser_pid()
+
+        self.docrawl_client.set_browser_meta_data(browser_meta_data)
 
         self.start_requests()
 
