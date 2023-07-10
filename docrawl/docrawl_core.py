@@ -1,22 +1,12 @@
-from docrawl.docrawl_logger import docrawl_logger
-from docrawl.elements import Element, ElementType, classify_element_by_xpath, PREDEFINED_TAGS
 import datetime
 import scrapy
 import requests
 import time
-import pickle
 import os
 import re
 import psutil
 import lxml.html
 import pandas as pd
-
-# Due to the problems with selenium wire on linux systems
-try:
-    from selenium import webdriver
-except:
-    docrawl_logger.error('Error while importing selenium-wire, using selenium instead')
-    from selenium import webdriver
 
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.proxy import Proxy, ProxyType
@@ -31,6 +21,16 @@ from webdriver_manager.firefox import GeckoDriverManager
 from webdriver_manager.chrome import ChromeDriverManager
 
 from scrapy.selector import Selector
+
+from docrawl.docrawl_logger import docrawl_logger
+from docrawl.elements import Element, ElementType, classify_element_by_xpath, PREDEFINED_TAGS
+
+# Due to the problems with selenium wire on linux systems
+try:
+    from selenium import webdriver
+except:
+    docrawl_logger.error('Error while importing selenium-wire, using selenium instead')
+    from selenium import webdriver
 
 
 class DocrawlSpider(scrapy.spiders.CrawlSpider):
