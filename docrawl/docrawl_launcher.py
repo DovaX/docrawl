@@ -1,3 +1,10 @@
+"""
+
+TO BE DEPRECATED
+
+"""
+
+
 import docrawl.docrawl_core as docrawl_core
 from scrapy.crawler import CrawlerRunner
 from crochet import setup
@@ -41,7 +48,7 @@ def take_png_screenshot(filename):
     """
 
     inp = {
-        'filename': filename
+        'filename': str(filename)       # Cast to str, e.g. when Path object is passed
     }
     run_function('take_png_screenshot', inp)
 
