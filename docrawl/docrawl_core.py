@@ -10,7 +10,6 @@ import pandas as pd
 
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.proxy import Proxy, ProxyType
-from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 from selenium.webdriver import FirefoxOptions, ChromeOptions
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -83,9 +82,8 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
             proxy_info = None
 
         if self.driver_type == 'Firefox':
-            capabilities = DesiredCapabilities.FIREFOX.copy()
             self.options = FirefoxOptions()
-            capabilities["marionette"] = True
+            self.options.set_preference("marionette", True)
 
             sw_options = self._set_proxy(proxy_info)
 
@@ -96,14 +94,12 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                 window_size_x = 1450
 
             try:
-                self.browser = webdriver.Firefox(options=self.options, capabilities=capabilities,
-                                                 service=Service(GeckoDriverManager().install()))
+                self.browser = webdriver.Firefox(options=self.options, service=Service(GeckoDriverManager().install()))
             except Exception as e:
                 docrawl_logger.error(f'Error while creating Firefox instance {e}')
-                self.browser = webdriver.Firefox(options=self.options, capabilities=capabilities)
+                self.browser = webdriver.Firefox(options=self.options)
 
         elif self.driver_type == 'Chrome':
-            capabilities = DesiredCapabilities.CHROME
             self.options = ChromeOptions()
 
             sw_options = self._set_proxy(proxy_info)
@@ -115,8 +111,7 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                 window_size_x = 1450
 
             try:
-                self.browser = webdriver.Chrome(options=self.options, desired_capabilities=capabilities,
-                                                executable_path=ChromeDriverManager().install())
+                self.browser = webdriver.Chrome(options=self.options, service=Service(ChromeDriverManager().install()))
             except:
                 pass
 
