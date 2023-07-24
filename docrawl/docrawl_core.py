@@ -115,10 +115,11 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                 window_size_x = 1450
 
             try:
-                self.browser = webdriver.Chrome(options=self.options, desired_capabilities=capabilities,
+                self.browser = webdriver.Chrome(options=self.options,#, desired_capabilities=capabilities,
                                                 executable_path=ChromeDriverManager().install())
-            except:
-                pass
+            except Exception as e:
+                docrawl_logger.error("Error: Browser could not be intialized",e)
+                
 
         window_size_x = 1820
 
