@@ -96,11 +96,11 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                 window_size_x = 1450
 
             try:
-                self.browser = webdriver.Firefox(options=self.options, capabilities=capabilities,
+                self.browser = webdriver.Firefox(options=self.options,#, capabilities=capabilities, #Capabilities deprecated in newest selenium
                                                  service=Service(GeckoDriverManager().install()))
             except Exception as e:
                 docrawl_logger.error(f'Error while creating Firefox instance {e}')
-                self.browser = webdriver.Firefox(options=self.options, capabilities=capabilities)
+                self.browser = webdriver.Firefox(options=self.options)#, capabilities=capabilities) #Capabilities deprecated in newest selenium
 
         elif self.driver_type == 'Chrome':
             capabilities = DesiredCapabilities.CHROME
