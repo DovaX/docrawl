@@ -112,9 +112,10 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                 window_size_x = 1450
 
             try:
-                self.browser = webdriver.Chrome(options=self.options, service=Service(ChromeDriverManager().install()))
-            except:
-                pass
+                self.browser = webdriver.Chrome(options=self.options, service=Service(ChromeDriverManager().install()), seleniumwire_options=sw_options)
+            except Exception as e:
+                docrawl_logger.error(f'Error while creating Chrome instance {e}')
+                self.browser = webdriver.Chrome(options=self.options)
 
         window_size_x = 1820
 
