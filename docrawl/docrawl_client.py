@@ -60,9 +60,9 @@ class DocrawlClient:
 
         return psutil.pid_exists(pid)
 
-    def _initialize_browser_metadata(self, driver, headless):
+    def _initialize_browser_metadata(self, driver, headless, proxy=None):
         browser_meta_data = {
-            "browser": {"driver": driver, "headless": headless},
+            "browser": {"driver": driver, "headless": headless, "proxy": proxy},
             "function": {"name": "init_function", "input": None, "done": False}
         }
 
@@ -128,8 +128,8 @@ class DocrawlClient:
         else:
             docrawl_logger.warning('Browser instance is not active')
 
-    def run_spider(self, driver='Firefox', in_browser: bool = False):
-        self._initialize_browser_metadata(driver=driver, headless=not in_browser)
+    def run_spider(self, driver='Firefox', in_browser: bool = False, proxy: dict = None):
+        self._initialize_browser_metadata(driver=driver, headless=not in_browser, proxy=proxy)
 
         setup()
         crawler = CrawlerRunner()
