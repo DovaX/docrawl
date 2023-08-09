@@ -1,3 +1,4 @@
+import traceback
 import datetime
 import scrapy
 import requests
@@ -921,3 +922,4 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                 break
             except Exception as e:
                 docrawl_logger.error(f'Error while executing docrawl loop: {e}')
+                docrawl_logger.error(traceback.format_exc())
