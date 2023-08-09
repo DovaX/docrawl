@@ -27,7 +27,7 @@ from docrawl.elements import Element, ElementType, classify_element_by_xpath, PR
 
 # Due to the problems with selenium wire on linux systems
 try:
-    from selenium import webdriver
+    from seleniumwire import webdriver
 except:
     docrawl_logger.error('Error while importing selenium-wire, using selenium instead')
     from selenium import webdriver
@@ -95,7 +95,7 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                 window_size_x = 1450
 
             try:
-                self.browser = webdriver.Firefox(options=self.options, service=Service(GeckoDriverManager().install()))
+                self.browser = webdriver.Firefox(options=self.options, service=Service(GeckoDriverManager().install()), seleniumwire_options=sw_options)
             except Exception as e:
                 docrawl_logger.error(f'Error while creating Firefox instance {e}')
                 self.browser = webdriver.Firefox(options=self.options)
