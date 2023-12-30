@@ -815,8 +815,13 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
         xpaths = inp['xpaths']
         filename = inp['filename']  # "extracted_data.txt"
 
-        for i, xpath in enumerate(xpaths):
+        for xpath in xpaths:
+            xpath = self._prepare_xpath_for_extraction(xpath)
             data = self.page.xpath(xpath).extract()
+            
+            if not data:
+                data = ['None']
+                
             docrawl_logger.info(f'Data from extracted XPath: {data}')
             result.append(data)
 
@@ -825,7 +830,9 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
         df.to_excel(short_filename + ".xlsx")
 
         with open(filename, "w+", encoding="utf-8") as f:
-            pass
+            output_list = ["\n".join(result_element) for result_element in result]
+            output = "\n".join(output_list)
+            f.write(output)
 
     def _extract_table_xpath(self, inp):
         row_xpath = inp['xpath_row']
