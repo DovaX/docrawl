@@ -32,6 +32,37 @@ except:
     docrawl_logger.error('Error while importing selenium-wire, using selenium instead')
     from selenium import webdriver
 
+import threading
+
+class ScreenshotThread(threading.Thread):
+    def __init__(self, docrawl_spider, screenshot_filename, interval=0.5):
+        threading.Thread.__init__(self)
+        self.docrawl_spider = docrawl_spider
+        self.screenshot_filename=screenshot_filename
+        self.interval = interval
+        self.stop_event = threading.Event()
+        self.number=0
+
+    def run(self):
+        while not self.stop_event.is_set():
+            self.take_screenshot()
+            time.sleep(self.interval)
+
+    def take_screenshot(self):
+        self.number+=1
+        #screenshot_name = f"screenshot_{int(time.time())}.png"
+        #self.browser.save_screenshot(screenshot_name)
+        inp = {
+            'filename': str(self.screenshot_filename)  # Cast to str, e.g. when Path object is passed
+        }
+        self.docrawl_spider._take_png_screenshot(inp)
+        
+        #screenshot = self.docrawl_spider.browser.get_full_page_screenshot_as_file(screenshot_name)
+        print(f"Screenshot taken: {self.screenshot_filename}")
+
+    def stop(self):
+        self.stop_event.set()
+
 
 class DocrawlSpider(scrapy.spiders.CrawlSpider):
     name = "forloop"
@@ -56,7 +87,7 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
         browser_meta_data['browser']['pid'] = self._determine_browser_pid()
 
         self.docrawl_client.set_browser_meta_data(browser_meta_data)
-
+        self.screenshot_thread = None #needs to be initialized to None before execution
         self.start_requests()
 
     def _initialise_browser(self):
@@ -887,6 +918,30 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
         self.browser.get(self.docrawl_client.get_browser_meta_data()['request']['url'])
 
         docrawl_core_done = False
+    def initialize_screenshot_thread_if_not_existing(self, screenshot_filename = "website_loading_screenshot.png"):
+        
+        if self.screenshot_thread is None:
+            self.screenshot_thread = ScreenshotThread(docrawl_spider = self, screenshot_filename = screenshot_filename)
+            self.screenshot_thread.start()
+            self.screenshot_time=0
+            docrawl_logger.info("Screenshot thread created")
+        else:
+            self.screenshot_thread.screenshot_filename = screenshot_filename #make sure the filename is correct if there is second attempt to initialize screenshot thread with different instructions (can happen e.g. load website and then take_screenshot immediately after that)
+            
+    def increment_time_of_screenshot_thread(self,screenshot_refreshing_timespan = 10):
+        """ screenshot refreshing timespan is in seconds"""
+        
+        if self.screenshot_thread is not None:
+            print("Screenshot thread update",self.screenshot_time)
+            
+            self.screenshot_time+=1
+            if self.screenshot_time > screenshot_refreshing_timespan:
+                
+                print("Screenshot thread stopping",self.screenshot_time)
+                self.screenshot_thread.stop()
+                self.screenshot_thread.join()
+                self.screenshot_thread = None
+                
 
         while not docrawl_core_done:
             browser_meta_data = self.docrawl_client.get_browser_meta_data()

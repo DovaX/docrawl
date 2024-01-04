@@ -24,7 +24,8 @@ class DocrawlSettings:
 class DocrawlClient:
     id_iter = itertools.count()
 
-    def __init__(self, kv_redis=KeepVariableDummyRedisServer(), kv_redis_keys=None):
+    def __init__(self, kv_redis=KeepVariableDummyRedisServer(), kv_redis_keys=None, number_of_spawn_browsers=0):
+        """number of spawn browsers = how many browser processes are ready in standby mode to not initialize + close the browser, currently support 0 and 1"""
         self._client_id = next(self.id_iter)
 
         self.kv_redis = kv_redis
@@ -35,6 +36,9 @@ class DocrawlClient:
         self._kv_redis_key_screenshot = self.kv_redis_keys.get('screenshot', 'screenshot')
 
         docrawl_logger.info(f'Initialised DocrawlClient with ID {self._client_id}')
+        
+        if number_of_spawn_browsers > 0: #TODO: increase number of spawned browsers, support just 1 standby browser at this moment
+            self.run_spider()
 
     def set_browser_meta_data(self, browser_meta_data: dict):
         self.kv_redis.set(key=self._kv_redis_key_browser_metadata, value=browser_meta_data)
