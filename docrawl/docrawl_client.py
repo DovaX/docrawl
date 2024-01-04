@@ -128,6 +128,13 @@ class DocrawlClient:
         else:
             docrawl_logger.warning('Browser instance is not active')
 
+    def acquire_browser(self):
+        self.active_browser = "browser1"
+        
+    def release_browser(self):
+        self.active_browser = None
+        
+
     def run_spider(self, driver='Firefox', in_browser: bool = False, proxy: dict = None):
         self._initialize_browser_metadata(driver=driver, headless=not in_browser, proxy=proxy)
 
