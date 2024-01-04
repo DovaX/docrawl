@@ -801,6 +801,16 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
         text = inp['text']
 
         self.browser.find_element(By.LINK_TEXT(text)).click()
+        
+    def _prepare_xpath_for_extraction(self, xpath: str):
+        if not xpath.endswith('/text()') and not '@' in xpath.split('/')[-1]:
+            xpath += '/text()'
+
+        # Extract link from "a" tags
+        if xpath.split('/')[-1] == 'a' or xpath.split('/')[-1] == '/a' or xpath.split('/')[-1].startswith('a['):
+            xpath += '/@href'
+            
+        return xpath
 
     def _extract_xpath(self, inp):
         """
@@ -809,12 +819,7 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
         xpath = inp['xpath']
         filename = inp['filename']  # "extracted_data.txt"
 
-        if not xpath.endswith('/text()') and not '@' in xpath.split('/')[-1]:
-            xpath += '/text()'
-
-        # Extract link from "a" tags
-        if xpath.split('/')[-1] == 'a' or xpath.split('/')[-1] == '/a' or xpath.split('/')[-1].startswith('a['):
-            xpath += '/@href'
+        xpath = self._prepare_xpath_for_extraction(xpath)
 
         try:
             write_in_file_mode = inp['write_in_file_mode']
@@ -841,8 +846,13 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
         xpaths = inp['xpaths']
         filename = inp['filename']  # "extracted_data.txt"
 
-        for i, xpath in enumerate(xpaths):
+        for xpath in xpaths:
+            xpath = self._prepare_xpath_for_extraction(xpath)
             data = self.page.xpath(xpath).extract()
+            
+            if not data:
+                data = ['None']
+                
             docrawl_logger.info(f'Data from extracted XPath: {data}')
             result.append(data)
 
@@ -851,7 +861,9 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
         df.to_excel(short_filename + ".xlsx")
 
         with open(filename, "w+", encoding="utf-8") as f:
-            pass
+            output_list = ["\n".join(result_element) for result_element in result]
+            output = "\n".join(output_list)
+            f.write(output)
 
     def _extract_table_xpath(self, inp):
         row_xpath = inp['xpath_row']
