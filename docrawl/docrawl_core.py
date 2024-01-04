@@ -914,10 +914,7 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
 
         self.docrawl_client.kv_redis.set(key='extracted_table', value=df)
 
-    def parse(self, response):
-        self.browser.get(self.docrawl_client.get_browser_meta_data()['request']['url'])
 
-        docrawl_core_done = False
     def initialize_screenshot_thread_if_not_existing(self, screenshot_filename = "website_loading_screenshot.png"):
         
         if self.screenshot_thread is None:
@@ -943,21 +940,51 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                 self.screenshot_thread = None
                 
 
+    def parse(self, response):
+        
+        browser_meta_data=self.docrawl_client.get_browser_meta_data()
+        browser_request = browser_meta_data.get("request")
+        while browser_request is None:
+            
+            
+            docrawl_logger.info('Waiting for getting a request in browser metadata')
+            time.sleep(1)
+            
+            browser_meta_data=self.docrawl_client.get_browser_meta_data()
+            browser_request = browser_meta_data.get("request")
+        
+        
+        
+        #self.browser.get(browser_request.get('url')) #Duplicate page load # disabled #if not needed, deprecate after 03/2024
+        #time.sleep(1)
+        docrawl_core_done = False
         while not docrawl_core_done:
+            
+            self.increment_time_of_screenshot_thread()
+                        
+                
             browser_meta_data = self.docrawl_client.get_browser_meta_data()
             spider_request = browser_meta_data['request']
             spider_function = browser_meta_data['function']
-
+            
             try:
+                
                 time.sleep(1)
                 docrawl_logger.info('Docrawl core loop')
 
                 if not spider_request['loaded']:
+                    
+                    self.initialize_screenshot_thread_if_not_existing()
+                        
+                        
+                    
                     self.browser.get(spider_request['url'])
                     self.page = Selector(text=self.browser.page_source)
 
                     spider_request['loaded'] = True
                     browser_meta_data['request'] = spider_request
+
+                    
 
                     self.docrawl_client.set_browser_meta_data(browser_meta_data)
 
@@ -966,8 +993,12 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
 
                     inp = spider_function['input']
                     docrawl_logger.info(f'Function input from docrawl core: {inp}')
-
-                    getattr(self, f'_{function_str}')(inp=inp)
+                    
+                    if f'_{function_str}'=="_take_png_screenshot":
+                        #skip standard execution and run in a different thread
+                        self.initialize_screenshot_thread_if_not_existing(inp["filename"])
+                    else: #Standard behaviour    
+                        getattr(self, f'_{function_str}')(inp=inp)
 
                     spider_function['done'] = True
                     browser_meta_data['function'] = spider_function
