@@ -159,25 +159,31 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
 
 
     def _prepare_proxy_string(self, proxy_info: dict):
-        proxy_ip = proxy_info['ip']
-        proxy_port = proxy_info['port']
-        proxy_username = proxy_info['username']
-        proxy_password = proxy_info['password']
-
-        if proxy_username and proxy_password:
-            proxy = f'http://{proxy_username}:{proxy_password}@{proxy_ip}:{proxy_port}'
+        if proxy_info is None or any([not proxy_info['ip'], not proxy_info['port']]):
+            return None
         else:
-            proxy = f'{proxy_ip}:{proxy_port}'
-
-        return proxy
+            proxy_ip = proxy_info['ip']
+            proxy_port = proxy_info['port']
+            proxy_username = proxy_info['username']
+            proxy_password = proxy_info['password']
+    
+            if proxy_username and proxy_password:
+                proxy = f'http://{proxy_username}:{proxy_password}@{proxy_ip}:{proxy_port}'
+            else:
+                proxy = f'{proxy_ip}:{proxy_port}'
+    
+            return proxy
 
     def _update_proxy(self, proxy_info: dict):
-        proxy = self._prepare_proxy_string(proxy_info)
-
-        proxy = f"http://scraperapi.keep_headers=true:8f36ddad83e66dd9614d74f61b1b4726@proxy-server.scraperapi.com:8001"
-
-        self.browser.proxy = {"http": proxy, "https": proxy, "verify_ssl": False}
-        docrawl_logger.warning("Proxy updated")
+        if proxy_info is None or any([not proxy_info['ip'], not proxy_info['port']]):
+            return None
+        else:
+            proxy = self._prepare_proxy_string(proxy_info)
+    
+            proxy = f"http://scraperapi.keep_headers=true:8f36ddad83e66dd9614d74f61b1b4726@proxy-server.scraperapi.com:8001"
+    
+            self.browser.proxy = {"http": proxy, "https": proxy, "verify_ssl": False}
+            docrawl_logger.warning("Proxy updated")
 
     def _set_proxy(self, proxy_info: dict) -> dict:
         """
@@ -188,31 +194,31 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
         # If proxy was not set
         if proxy_info is None or any([not proxy_info['ip'], not proxy_info['port']]):
             return None
-
-        proxy = self._prepare_proxy_string(proxy_info)
-
-        # Proxy with authentication
-        if 'http://' in proxy:
-            # selenium-wire proxy settings
-            sw_options = {
-                'proxy': {
-                    'http': proxy,
-                    'https': proxy,
-                    'no_proxy': 'localhost,127.0.0.1'
-                }
-            }
-
-        # Proxy without authentication
         else:
-            sw_options = None
-            firefox_proxies = Proxy()
-            firefox_proxies.ssl_proxy = proxy
-            firefox_proxies.http_proxy = proxy
-            firefox_proxies.proxy_type = ProxyType.MANUAL
-
-            self.options.proxy = firefox_proxies
-
-        return sw_options
+            proxy = self._prepare_proxy_string(proxy_info)
+    
+            # Proxy with authentication
+            if 'http://' in proxy:
+                # selenium-wire proxy settings
+                sw_options = {
+                    'proxy': {
+                        'http': proxy,
+                        'https': proxy,
+                        'no_proxy': 'localhost,127.0.0.1'
+                    }
+                }
+    
+            # Proxy without authentication
+            else:
+                sw_options = None
+                firefox_proxies = Proxy()
+                firefox_proxies.ssl_proxy = proxy
+                firefox_proxies.http_proxy = proxy
+                firefox_proxies.proxy_type = ProxyType.MANUAL
+    
+                self.options.proxy = firefox_proxies
+    
+            return sw_options
 
     def _determine_browser_pid(self):
         browser_pid = None
