@@ -180,8 +180,6 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
         else:
             proxy = self._prepare_proxy_string(proxy_info)
     
-            proxy = f"http://scraperapi.keep_headers=true:8f36ddad83e66dd9614d74f61b1b4726@proxy-server.scraperapi.com:8001"
-    
             self.browser.proxy = {"http": proxy, "https": proxy, "verify_ssl": False}
             docrawl_logger.warning("Proxy updated")
 
