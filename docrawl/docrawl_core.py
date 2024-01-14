@@ -157,6 +157,28 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
     def __del__(self):
         self.browser.quit()
 
+
+    def _prepare_proxy_string(self, proxy_info: dict):
+        proxy_ip = proxy_info['ip']
+        proxy_port = proxy_info['port']
+        proxy_username = proxy_info['username']
+        proxy_password = proxy_info['password']
+
+        if proxy_username and proxy_password:
+            proxy = f'http://{proxy_username}:{proxy_password}@{proxy_ip}:{proxy_port}'
+        else:
+            proxy = f'{proxy_ip}:{proxy_port}'
+
+        return proxy
+
+    def _update_proxy(self, proxy_info: dict):
+        proxy = self._prepare_proxy_string(proxy_info)
+
+        proxy = f"http://scraperapi.keep_headers=true:8f36ddad83e66dd9614d74f61b1b4726@proxy-server.scraperapi.com:8001"
+
+        self.browser.proxy = {"http": proxy, "https": proxy, "verify_ssl": False}
+        docrawl_logger.warning("Proxy updated")
+
     def _set_proxy(self, proxy_info: dict) -> dict:
         """
         Sets proxy before launching browser instance.
@@ -167,15 +189,7 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
         if proxy_info is None or any([not proxy_info['ip'], not proxy_info['port']]):
             return None
 
-        proxy_ip = proxy_info['ip']
-        proxy_port = proxy_info['port']
-        proxy_username = proxy_info['username']
-        proxy_password = proxy_info['password']
-
-        if proxy_username and proxy_password:
-            proxy = f'http://{proxy_username}:{proxy_password}@{proxy_ip}:{proxy_port}'
-        else:
-            proxy = f'{proxy_ip}:{proxy_port}'
+        proxy = self._prepare_proxy_string(proxy_info)
 
         # Proxy with authentication
         if 'http://' in proxy:
@@ -978,7 +992,8 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
             browser_meta_data = self.docrawl_client.get_browser_meta_data()
             spider_request = browser_meta_data['request']
             spider_function = browser_meta_data['function']
-            
+            proxy = browser_meta_data['browser']['proxy']
+
             try:
                 
                 time.sleep(1)
@@ -987,9 +1002,11 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                 if not spider_request['loaded']:
                     
                     self.initialize_screenshot_thread_if_not_existing()
-                        
-                        
-                    
+
+                    if proxy != self.browser.proxy:
+                        docrawl_logger.warning('Proxy was updated in meanwhile')
+                        self._update_proxy(proxy)
+
                     self.browser.get(spider_request['url'])
                     self.page = Selector(text=self.browser.page_source)
 

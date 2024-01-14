@@ -60,7 +60,7 @@ class DocrawlClient:
 
     def is_browser_active(self):
         # TODO: finish later
-        pid = self.get_browser_meta_data()['browser']['pid']
+        pid = self.get_browser_meta_data()['browser'].get('pid', 0)
 
         return psutil.pid_exists(pid)
 
@@ -132,9 +132,14 @@ class DocrawlClient:
         else:
             docrawl_logger.warning('Browser instance is not active')
 
-    def acquire_browser(self):
+    def acquire_browser(self, driver, in_browser=False, proxy=None):
+        # Need to update browser metadata mainly for proxy
+        self._initialize_browser_metadata(driver=driver, headless=not in_browser, proxy=proxy)
+
         self.active_browser = "browser1"
-        
+
+        docrawl_logger.warning(f"Acquired browser {self.active_browser}")
+
     def release_browser(self):
         self.active_browser = None
         
