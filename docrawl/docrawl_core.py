@@ -326,11 +326,14 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
         if type(self.browser) == webdriver.Firefox:
 
             try:
+                WebDriverWait(self.browser, 5).until(EC.presence_of_element_located((By.XPATH, '/html')))
                 root_element = self.browser.find_element(By.XPATH, '/html')
 
                 screenshot = self.browser.get_full_page_screenshot_as_file(filename)
-                self.browser.execute_script("return arguments[0].scrollIntoView(true);", root_element)
-
+                try:
+                    self.browser.execute_script("return arguments[0].scrollIntoView(true);", root_element)
+                except Exception as e:
+                    docrawl_logger.warning("Warning: Website wasn't scrolled while taking screenshot: "+str(e))
                 docrawl_logger.info(f'Png screenshot created')
             except Exception as e:
                 docrawl_logger.error(f'Error while taking page png screenshot: {e}')
