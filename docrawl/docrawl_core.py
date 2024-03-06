@@ -330,6 +330,10 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                 root_element = self.browser.find_element(By.XPATH, '/html')
 
                 screenshot = self.browser.get_full_page_screenshot_as_file(filename)
+                try: #TEMPORARY HOT FIX
+                    screenshot = self.browser.get_full_page_screenshot_as_file("./tmp/screenshots/website.png")
+                except Exception as e:
+                    print("Docrawl: TEMPORARY TRY EXCEPT")
                 try:
                     self.browser.execute_script("return arguments[0].scrollIntoView(true);", root_element)
                 except Exception as e:
