@@ -58,7 +58,7 @@ class ScreenshotThread(threading.Thread):
         self.docrawl_spider._take_png_screenshot(inp)
         
         #screenshot = self.docrawl_spider.browser.get_full_page_screenshot_as_file(screenshot_name)
-        print(f"Screenshot taken: {self.screenshot_filename}")
+        docrawl_logger.info(f"Screenshot thread: Screenshot taken - {self.screenshot_filename}")
 
     def stop(self):
         self.stop_event.set()
@@ -301,7 +301,7 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
             string = ""
 
         self.docrawl_client.set_browser_screenshot(string)
-        docrawl_logger.warning('SCRENSHOT CREATED')
+        docrawl_logger.warning('SCREENSHOT CREATED')
 
     def _take_png_screenshot(self, inp):
         """
@@ -954,15 +954,16 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
             self.screenshot_thread = ScreenshotThread(docrawl_spider = self, screenshot_filename = screenshot_filename)
             self.screenshot_thread.start()
             self.screenshot_time=0
-            docrawl_logger.info("Screenshot thread created")
+            docrawl_logger.info("Screenshot thread created with screenshot_filename: "+str(screenshot_filename))
         else:
             self.screenshot_thread.screenshot_filename = screenshot_filename #make sure the filename is correct if there is second attempt to initialize screenshot thread with different instructions (can happen e.g. load website and then take_screenshot immediately after that)
+            docrawl_logger.info("Screenshot screenshot_filename was updated: "+str(screenshot_filename))
             
     def increment_time_of_screenshot_thread(self,screenshot_refreshing_timespan = 10):
         """ screenshot refreshing timespan is in seconds"""
         
         if self.screenshot_thread is not None:
-            print("Screenshot thread update",self.screenshot_time)
+            docrawl_logger.info("Screenshot thread update"+str(self.screenshot_time))
             
             self.screenshot_time+=1
             if self.screenshot_time > screenshot_refreshing_timespan:
