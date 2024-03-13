@@ -963,7 +963,7 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
             self.screenshot_thread.screenshot_filename = screenshot_filename #make sure the filename is correct if there is second attempt to initialize screenshot thread with different instructions (can happen e.g. load website and then take_screenshot immediately after that)
             docrawl_logger.info("Screenshot screenshot_filename was updated: "+str(screenshot_filename))
             
-    def increment_time_of_screenshot_thread(self,screenshot_refreshing_timespan = 10):
+    def increment_time_of_screenshot_thread(self,screenshot_refreshing_timespan = 5):
         """ screenshot refreshing timespan is in seconds"""
         
         if self.screenshot_thread is not None:
@@ -1013,7 +1013,7 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
 
                 if not spider_request['loaded']:
                     
-                    self.initialize_screenshot_thread_if_not_existing()
+                    #self.initialize_screenshot_thread_if_not_existing()
 
                     if proxy != self.browser.proxy:
                         docrawl_logger.warning('Proxy was updated in meanwhile')
