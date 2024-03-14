@@ -243,7 +243,8 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
     # # # # # # # SCRAPING FUNCTIONS # # # # # # #
 
     def _init_function(self, inp):
-        pass
+        docrawl_logger.warning("_init_function is being executed")
+        
 
     def _click_class(self, inp):
         class_input = inp.get("filename")
@@ -361,6 +362,8 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
             :param inp: list, inputs from launcher (incl_tables, incl_bullets, output_dir)
             :param browser: webdriver, browser instance
         """
+        
+        docrawl_logger.warning("Scan web page has started")
 
         incl_tables = inp['incl_tables']
         incl_bullets = inp['incl_bullets']
@@ -540,7 +543,7 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
             }
 
             return element_data
-
+        global new_elements_all
         new_elements_all = []
 
         def find_elements(element_type: ElementType, custom_tags: list = None):
@@ -549,6 +552,8 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                 :param element_type: type of element (table, bullet, text, headline, link, ...)
                 :param custom_tags: list of custom tags
             """
+
+            global new_elements_all
 
             tags = PREDEFINED_TAGS[element_type] if not custom_tags else custom_tags
             elements = []
@@ -599,6 +604,7 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
 
             return xpath
 
+        docrawl_logger.info("Find elements phase has started")
         ##### TABLES SECTION #####
         if incl_tables:
             find_elements(element_type=ElementType.TABLE)
@@ -1009,7 +1015,7 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
             try:
                 
                 time.sleep(1)
-                docrawl_logger.info('Docrawl core loop')
+                docrawl_logger.info('Docrawl core loop, page loaded: '+str(spider_request['loaded'])+', function name :'+str(spider_function["name"])+" function done: "+str(spider_function["done"]))
 
                 if not spider_request['loaded']:
                     
@@ -1035,11 +1041,15 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                     inp = spider_function['input']
                     docrawl_logger.info(f'Function input from docrawl core: {inp}')
                     
+                    
+                    docrawl_logger.warning("Preparing for finishing undone docrawl function")
                     if f'_{function_str}'=="_take_png_screenshot":
                         #skip standard execution and run in a different thread
                         self.initialize_screenshot_thread_if_not_existing(inp["filename"])
                     else: #Standard behaviour    
                         getattr(self, f'_{function_str}')(inp=inp)
+                        
+                        docrawl_logger.warning("Running docrawl function:"+f'_{function_str}')
 
                     spider_function['done'] = True
                     browser_meta_data['function'] = spider_function

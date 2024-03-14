@@ -121,7 +121,7 @@ class DocrawlClient:
     def _execute_function(self, function, function_input=None, timeout=30):
         docrawl_logger.info(f'Running function {function} with input: {function_input}')
 
-        if self.is_browser_active():
+        if True:#self.is_browser_active(): #The browser seemed inactive but it was actually active
             browser_meta_data = self.get_browser_meta_data()
             function = {"name": function, "input": function_input, "done": False}
             browser_meta_data['function'] = function
@@ -130,7 +130,7 @@ class DocrawlClient:
             # self._wait_until_page_is_loaded()
             self._wait_until_function_is_done(timeout)
         else:
-            docrawl_logger.warning('Browser instance is not active')
+            docrawl_logger.warning('Browser instance is not active / crashed, function '+str(function)+' could not be executed')
 
     def acquire_browser(self, driver, in_browser=False, proxy=None):
         # Need to update browser metadata mainly for proxy
