@@ -991,7 +991,7 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
         while browser_request is None:
             
             
-            docrawl_logger.info('Waiting for getting a request in browser metadata')
+            # docrawl_logger.info('Waiting for getting a request in browser metadata')
             time.sleep(1)
             
             browser_meta_data=self.docrawl_client.get_browser_meta_data()
@@ -1015,7 +1015,7 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
             try:
                 
                 time.sleep(1)
-                docrawl_logger.info('Docrawl core loop, page loaded: '+str(spider_request['loaded'])+', function name :'+str(spider_function["name"])+" function done: "+str(spider_function["done"]))
+                # docrawl_logger.info('Docrawl core loop, page loaded: '+str(spider_request['loaded'])+', function name :'+str(spider_function["name"])+" function done: "+str(spider_function["done"]))
 
                 if not spider_request['loaded']:
                     

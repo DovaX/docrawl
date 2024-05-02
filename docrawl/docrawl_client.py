@@ -24,17 +24,17 @@ class DocrawlSettings:
 class DocrawlClient:
     id_iter = itertools.count()
 
-    def __init__(self, kv_redis=KeepVariableDummyRedisServer(), kv_redis_keys=None, number_of_spawn_browsers=0, redis_key_prefix=""):
+    def __init__(self, kv_redis=None, kv_redis_keys=None, number_of_spawn_browsers=0, redis_key_prefix=""):
         """number of spawn browsers = how many browser processes are ready in standby mode to not initialize + close the browser, currently support 0 and 1"""
-        self._client_id = next(self.id_iter)
+        self._client_id = redis_key_prefix.split(':')[1] or next(self.id_iter)
 
-        self.kv_redis = kv_redis
-        self.kv_redis_keys = kv_redis_keys or dict()
+        self.kv_redis = kv_redis or KeepVariableDummyRedisServer()
+        self.kv_redis_keys = kv_redis_keys or {}
         self.redis_key_prefix = redis_key_prefix
 
-        self._kv_redis_key_browser_metadata = self.kv_redis_keys.get(self.redis_key_prefix+'browser_meta_data', self.redis_key_prefix+'browser_meta_data')
-        self._kv_redis_key_scanned_elements = self.kv_redis_keys.get(self.redis_key_prefix+'elements', self.redis_key_prefix+'elements')
-        self._kv_redis_key_screenshot = self.kv_redis_keys.get(self.redis_key_prefix+'screenshot', self.redis_key_prefix+'screenshot')
+        self._kv_redis_key_browser_metadata = self.kv_redis_keys.get('browser_meta_data', f'{self.redis_key_prefix}:browser_meta_data')
+        self._kv_redis_key_scanned_elements = self.kv_redis_keys.get('elements', f'{self.redis_key_prefix}:elements')
+        self._kv_redis_key_screenshot = self.kv_redis_keys.get('screenshot', f'{self.redis_key_prefix}:screenshot')
         
         
         docrawl_logger.info(f'Initialised DocrawlClient with ID {self._client_id}')
@@ -52,13 +52,13 @@ class DocrawlClient:
         self.kv_redis.set(key=self._kv_redis_key_scanned_elements, value=elements)
 
     def get_browser_scanned_elements(self):
-        self.kv_redis.get(key=self._kv_redis_key_scanned_elements)
+        return self.kv_redis.get(key=self._kv_redis_key_scanned_elements)
 
     def set_browser_screenshot(self, screenshot: str):
         self.kv_redis.set(key=self._kv_redis_key_screenshot, value=screenshot)
 
-    def get_browser_screenshot(self):
-        self.kv_redis.get(key=self._kv_redis_key_screenshot)
+    def get_browser_screenshot(self) -> str:
+        return self.kv_redis.get(key=self._kv_redis_key_screenshot)
 
     def is_browser_active(self):
         # TODO: finish later
@@ -90,7 +90,7 @@ class DocrawlClient:
             except:
                 is_page_loaded = False
             time.sleep(0.5)
-            docrawl_logger.info('Page is still loading, waiting 0.5 sec ...')
+            # docrawl_logger.info('Page is still loading, waiting 0.5 sec ...')
 
         if is_page_loaded:
             docrawl_logger.success('Page loaded')
@@ -113,7 +113,7 @@ class DocrawlClient:
             except:
                 is_function_done = False
             time.sleep(0.5)
-            docrawl_logger.info('Function is still running, waiting 0.5 sec ...')
+            # docrawl_logger.info('Function is still running, waiting 0.5 sec ...')
 
         if is_function_done:
             docrawl_logger.success('Function finished')
