@@ -1,0 +1,2 @@
+class SpiderFunctionError(Exception):
+    pass
