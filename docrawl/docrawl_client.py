@@ -1,15 +1,15 @@
-import psutil
 import itertools
 import time
-
-from scrapy.crawler import CrawlerRunner
-from dataclasses import dataclass
 from contextlib import suppress
+from dataclasses import dataclass
+
+import psutil
 from crochet import setup
+from scrapy.crawler import CrawlerRunner
 
-from docrawl.docrawl_logger import docrawl_logger
 from docrawl.docrawl_core import DocrawlSpider
-
+from docrawl.docrawl_logger import docrawl_logger
+from docrawl.errors import SpiderFunctionError
 from keepvariable.keepvariable_core import KeepVariableDummyRedisServer
 
 
@@ -25,7 +25,7 @@ class DocrawlClient:
     id_iter = itertools.count()
 
     def __init__(self, kv_redis=None, kv_redis_keys=None, number_of_spawn_browsers=0, redis_key_prefix=""):
-        """number of spawn browsers = how many browser processes are ready in standby mode to not initialize + close the browser, currently support 0 and 1"""
+        """Number of spawn browsers = how many browser processes are ready in standby mode to not initialize + close the browser, currently support 0 and 1."""
         self._client_id = redis_key_prefix.split(':')[1] or next(self.id_iter)
 
         self.kv_redis = kv_redis or KeepVariableDummyRedisServer()
@@ -35,10 +35,10 @@ class DocrawlClient:
         self._kv_redis_key_browser_metadata = self.kv_redis_keys.get('browser_meta_data', f'{self.redis_key_prefix}:browser_meta_data')
         self._kv_redis_key_scanned_elements = self.kv_redis_keys.get('elements', f'{self.redis_key_prefix}:elements')
         self._kv_redis_key_screenshot = self.kv_redis_keys.get('screenshot', f'{self.redis_key_prefix}:screenshot')
-        
-        
+
+
         docrawl_logger.info(f'Initialised DocrawlClient with ID {self._client_id}')
-        
+
         if number_of_spawn_browsers > 0: #TODO: increase number of spawned browsers, support just 1 standby browser at this moment
             self.run_spider()
 
@@ -69,7 +69,7 @@ class DocrawlClient:
     def _initialize_browser_metadata(self, driver, headless, proxy=None):
         browser_meta_data = {
             "browser": {"driver": driver, "headless": headless, "proxy": proxy},
-            "function": {"name": "init_function", "input": None, "done": False}
+            "function": {"name": "init_function", "input": None, "done": False, "error": None},
         }
 
         self.set_browser_meta_data(browser_meta_data)
@@ -100,7 +100,9 @@ class DocrawlClient:
     def _wait_until_function_is_done(self, timeout):
         # Load spider_requests and spider_functions
         try:
-            is_function_done = self.get_browser_meta_data()['function']['done']
+            spider_function = self.get_browser_meta_data()['function']
+            is_function_done = spider_function['done']
+            function_error_message = spider_function['error']
         except Exception as e:
             docrawl_logger.error(f'Error while loading is_function_done: {e}')
             is_function_done = True
@@ -116,16 +118,21 @@ class DocrawlClient:
             # docrawl_logger.info('Function is still running, waiting 0.5 sec ...')
 
         if is_function_done:
-            docrawl_logger.success('Function finished')
+            if function_error_message is None:
+                docrawl_logger.success('Spider function finished successfully')
+            else:
+                docrawl_logger.error(f'Spider function failed: {function_error_message}')
+                raise SpiderFunctionError(spider_function['error'])
         else:
             docrawl_logger.error('Function was not finished')
+            raise TimeoutError('Spider function timed out')
 
     def _execute_function(self, function, function_input=None, timeout=30):
-        docrawl_logger.info(f'Running function {function} with input: {function_input}')
+        # docrawl_logger.info(f'Running function {function} with input: {function_input}')
 
         if True:#self.is_browser_active(): #The browser seemed inactive but it was actually active
             browser_meta_data = self.get_browser_meta_data()
-            function = {"name": function, "input": function_input, "done": False}
+            function = {"name": function, "input": function_input, "done": False, "error": None}
             browser_meta_data['function'] = function
             self.set_browser_meta_data(browser_meta_data)
 
@@ -144,7 +151,7 @@ class DocrawlClient:
 
     def release_browser(self):
         self.active_browser = None
-        
+
 
     def run_spider(self, driver='Firefox', in_browser: bool = False, proxy: dict = None):
         self._initialize_browser_metadata(driver=driver, headless=not in_browser, proxy=proxy)
@@ -170,9 +177,8 @@ class DocrawlClient:
     def take_png_screenshot(self, filename, timeout=20):
         """
         Launches take_screenshot from core.
-            :param filename: string, output filename (where to save the screenshot)
+            :param filename: string, output filename (where to save the screenshot).
         """
-
         inp = {
             'filename': str(filename)  # Cast to str, e.g. when Path object is passed
         }
@@ -182,9 +188,8 @@ class DocrawlClient:
     def extract_page_source(self, filename, timeout=20):
         """
         Launches extract_page_source from core.
-            :param filename: string, name of file that will be used for storing page source
+            :param filename: string, name of file that will be used for storing page source.
         """
-
         inp = {
             'filename': filename
         }
@@ -205,9 +210,8 @@ class DocrawlClient:
             :param incl_images: boolean, search for images
             :param incl_buttons: boolean, search for buttons
             :param by_xpath: str, search elements by custom XPath
-            :param output_folder: str, path to output folder
+            :param output_folder: str, path to output folder.
         """
-
         inp = {
             'incl_tables': incl_tables,
             'incl_bullets': incl_bullets,
@@ -227,9 +231,8 @@ class DocrawlClient:
     def wait_until_element_is_located(self, xpath, timeout=20):
         """
         Launches wait_until_element_is_located function from core.
-            :param xpath: str, xpath of element to be located
+            :param xpath: str, xpath of element to be located.
         """
-
         inp = {
             'xpath': xpath
         }
@@ -239,9 +242,8 @@ class DocrawlClient:
     def get_current_url(self, filename, timeout=20):
         """
         Launches get_current_url function from core.
-            :param filename: string, name of file that will be used for storing the URL
+            :param filename: string, name of file that will be used for storing the URL.
         """
-
         inp = {
             'filename': filename
         }
@@ -249,9 +251,7 @@ class DocrawlClient:
         self._execute_function('get_current_url', inp, timeout)
 
     def close_browser(self, timeout=10):
-        """
-        Launches close_browser function from core.
-        """
+        """Launch close_browser function from core."""
 
         self._execute_function('close_browser', None, timeout)
 

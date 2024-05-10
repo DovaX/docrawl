@@ -1039,10 +1039,10 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                     function_str = spider_function['name']
 
                     inp = spider_function['input']
-                    docrawl_logger.info(f'Function input from docrawl core: {inp}')
+                    # docrawl_logger.info(f'Function input from docrawl core: {inp}')
                     
                     
-                    docrawl_logger.warning("Preparing for finishing undone docrawl function")
+                    # docrawl_logger.warning("Preparing for finishing undone docrawl function")
                     if f'_{function_str}'=="_take_png_screenshot":
                         #skip standard execution and run in a different thread
                         self.initialize_screenshot_thread_if_not_existing(inp["filename"])
@@ -1052,8 +1052,8 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                         docrawl_logger.warning("Running docrawl function:"+f'_{function_str}')
 
                     spider_function['done'] = True
+                    spider_function['error'] = None
                     browser_meta_data['function'] = spider_function
-
                     self.docrawl_client.set_browser_meta_data(browser_meta_data)
 
             except KeyboardInterrupt:
@@ -1061,3 +1061,8 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
             except Exception as e:
                 docrawl_logger.error(f'Error while executing docrawl loop: {e}')
                 docrawl_logger.error(traceback.format_exc())
+
+                spider_function['done'] = True
+                spider_function['error'] = str(e)
+                browser_meta_data['function'] = spider_function
+                self.docrawl_client.set_browser_meta_data(browser_meta_data)
