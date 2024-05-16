@@ -9,7 +9,7 @@ from scrapy.crawler import CrawlerRunner
 
 from docrawl.docrawl_core import DocrawlSpider
 from docrawl.docrawl_logger import docrawl_logger
-from docrawl.errors import SpiderFunctionError
+from docrawl.errors import PageDidNotLoadError, SpiderFunctionError
 from keepvariable.keepvariable_core import KeepVariableDummyRedisServer
 
 
@@ -96,6 +96,7 @@ class DocrawlClient:
             docrawl_logger.success('Page loaded')
         else:
             docrawl_logger.error('Page was not loaded')
+            raise PageDidNotLoadError()
 
     def _wait_until_function_is_done(self, timeout):
         # Load spider_requests and spider_functions
@@ -252,7 +253,6 @@ class DocrawlClient:
 
     def close_browser(self, timeout=10):
         """Launch close_browser function from core."""
-
         self._execute_function('close_browser', None, timeout)
 
         pid = self.get_browser_meta_data()['browser']['pid']
@@ -267,9 +267,8 @@ class DocrawlClient:
         Launches scroll_web_page function from core.
             :param scroll_to: string, scroll direction (Up/Down)
             :param scroll_by: int, scroll distance
-            :param scroll_max: bool, scroll to maximum
+            :param scroll_max: bool, scroll to maximum.
         """
-
         inp = {
             'scroll_to': scroll_to,
             'scroll_by': scroll_by,
@@ -282,9 +281,8 @@ class DocrawlClient:
         """
         Launches download_image function from core.
             :param image_xpath: string, url of image
-            :param filename: string, output filename
+            :param filename: string, output filename.
         """
-
         inp = {
             'image_xpath': image_xpath,
             'filename': filename,
