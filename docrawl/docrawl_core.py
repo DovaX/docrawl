@@ -1003,22 +1003,17 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
         #time.sleep(1)
         docrawl_core_done = False
         while not docrawl_core_done:
-            
-            self.increment_time_of_screenshot_thread()
-                        
-                
-            browser_meta_data = self.docrawl_client.get_browser_meta_data()
-            spider_request = browser_meta_data['request']
-            spider_function = browser_meta_data['function']
-            proxy = browser_meta_data['browser']['proxy']
-
             try:
-                
+                self.increment_time_of_screenshot_thread()
+                browser_meta_data = self.docrawl_client.get_browser_meta_data()
+                spider_request = browser_meta_data['request']
+                spider_function = browser_meta_data['function']
+                proxy = browser_meta_data['browser']['proxy']
+
                 time.sleep(1)
                 # docrawl_logger.info('Docrawl core loop, page loaded: '+str(spider_request['loaded'])+', function name :'+str(spider_function["name"])+" function done: "+str(spider_function["done"]))
 
                 if not spider_request['loaded']:
-                    
                     #self.initialize_screenshot_thread_if_not_existing()
 
                     if proxy != self.browser.proxy:
@@ -1030,9 +1025,6 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
 
                     spider_request['loaded'] = True
                     browser_meta_data['request'] = spider_request
-
-                    
-
                     self.docrawl_client.set_browser_meta_data(browser_meta_data)
 
                 if not spider_function['done']:
@@ -1040,15 +1032,12 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
 
                     inp = spider_function['input']
                     # docrawl_logger.info(f'Function input from docrawl core: {inp}')
-                    
-                    
                     # docrawl_logger.warning("Preparing for finishing undone docrawl function")
                     if f'_{function_str}'=="_take_png_screenshot":
                         #skip standard execution and run in a different thread
                         self.initialize_screenshot_thread_if_not_existing(inp["filename"])
                     else: #Standard behaviour    
                         getattr(self, f'_{function_str}')(inp=inp)
-                        
                         docrawl_logger.warning("Running docrawl function:"+f'_{function_str}')
 
                     spider_function['done'] = True
