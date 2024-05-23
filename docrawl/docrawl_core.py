@@ -126,7 +126,13 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                 window_size_x = 1450
 
             try:
-                self.browser = webdriver.Firefox(options=self.options, service=Service(GeckoDriverManager().install()), seleniumwire_options=sw_options)
+                try:
+                    service = Service(GeckoDriverManager().install())
+                except Exception as e:
+                    service = None
+                    docrawl_logger.warning("GeckoDriverManager update was not successful - launching latest Firefox version instead"+str(e))
+                
+                self.browser = webdriver.Firefox(options=self.options, service=service, seleniumwire_options=sw_options)
             except Exception as e:
                 docrawl_logger.error(f'Error while creating Firefox instance {e}')
                 self.browser = webdriver.Firefox(options=self.options)
