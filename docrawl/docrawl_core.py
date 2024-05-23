@@ -957,6 +957,8 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
 
         self.docrawl_client.kv_redis.set(key='extracted_table', value=df)
 
+    def _refresh_page_source(self, inp):
+        self.page = Selector(text=self.browser.page_source)
 
     def initialize_screenshot_thread_if_not_existing(self, screenshot_filename = "website_loading_screenshot.png"):
         
