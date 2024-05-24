@@ -331,5 +331,8 @@ class DocrawlClient:
 
         self._execute_function('click_name', inp, timeout)
 
+    def refresh_page_source(self, timeout=30):
+        self._execute_function('refresh_page_source', None, timeout)
+
     def __exit__(self):
         self.close_browser()
