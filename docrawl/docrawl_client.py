@@ -90,7 +90,7 @@ class DocrawlClient:
             except:
                 is_page_loaded = False
             time.sleep(0.5)
-            # docrawl_logger.info('Page is still loading, waiting 0.5 sec ...')
+            docrawl_logger.info('Page is still loading, waiting 0.5 sec ...')
 
         if is_page_loaded:
             docrawl_logger.success('Page loaded')
@@ -116,7 +116,7 @@ class DocrawlClient:
             except:
                 is_function_done = False
             time.sleep(0.5)
-            # docrawl_logger.info('Function is still running, waiting 0.5 sec ...')
+            docrawl_logger.info('Function is still running, waiting 0.5 sec ...')
 
         if is_function_done:
             if function_error_message is None:
