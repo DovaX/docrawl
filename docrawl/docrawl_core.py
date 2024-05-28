@@ -264,48 +264,32 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
 
     def _take_screenshot(self, inp):
         """
-        Takes screenshot of current page and saves it.
-            :param browser: Selenium driver, browser instance
-            :param inp, list, inputs from launcher (filename)
+        Take screenshot of current page and save it.
+
+        :param browser: Selenium driver, browser instance
         """
+        if isinstance(self.browser, webdriver.Firefox):
+            root_element = self.browser.find_element(By.XPATH, '/html')
+            string = self.browser.get_full_page_screenshot_as_base64()
+            self.browser.execute_script("return arguments[0].scrollIntoView(true);", root_element)
 
-        # filename = inp['filename']
-        browser_type = type(self.browser)
-
-        if browser_type == webdriver.Firefox:
-
-            try:
-                docrawl_logger.warning('START SCREENSHOT CREATED')
-                root_element = self.browser.find_element(By.XPATH, '/html')
-                string = self.browser.get_full_page_screenshot_as_base64()
-                self.browser.execute_script("return arguments[0].scrollIntoView(true);", root_element)
-
-                # with open(filename, "w+") as fh:
-                #     fh.write(string)
-                #     docrawl_logger.warning('SCRENSHOT CREATED')
-            except Exception as e:
-                string = ""
-                docrawl_logger.error(f'Error while taking page screenshot: {e}')
-
-        elif browser_type == webdriver.Chrome:
+        elif isinstance(self.browser, webdriver.Chrome):
             # Get params needed for fullpage screenshot
             page_rect = self.browser.execute_cdp_cmd('Page.getLayoutMetrics', {})
-
             # Set the width and height of the viewport to screenshot, same as the site's content size
-            screenshot_config = {'captureBeyondViewport': True,
-                                 'fromSurface': True,
-                                 'clip': {'width': page_rect['cssContentSize']['width'],
-                                          'height': page_rect['cssContentSize']['height'],
-                                          'x': 0,
-                                          'y': 0,
-                                          'scale': 1},
-                                 }
+            screenshot_config = {
+                'captureBeyondViewport': True,
+                'fromSurface': True,
+                'clip':
+                    {
+                        'width': page_rect['cssContentSize']['width'],
+                        'height': page_rect['cssContentSize']['height'], 'x': 0, 'y': 0, 'scale': 1
+                    },
+            }
             # Dictionary with 1 key: data
-            string = self.browser.execute_cdp_cmd('Page.captureScreenshot', screenshot_config)['data']  # Taking screenshot
-            # with open(filename, "w+") as fh:
-            #     fh.write(string)
+            string = self.browser.execute_cdp_cmd('Page.captureScreenshot', screenshot_config)['data']
         else:
-            string = ""
+            raise NotImplementedError(f"Screenshot is not implemented for {self.browser} browser")
 
         self.docrawl_client.set_browser_screenshot(string)
         docrawl_logger.warning('SCREENSHOT CREATED')
