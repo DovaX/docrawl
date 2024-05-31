@@ -168,9 +168,9 @@ class DocrawlClient:
 
         param as_new: bool, if True, the browser will be opened with a new `browser_metadata`
         """
-        self._execute_function('restart_browser', None)
         if as_new:
             self._initialize_browser_metadata(driver=driver, headless=not in_browser, proxy=proxy)
+        self._execute_function('restart_browser', None, timeout=120)
 
     def load_website(self, url, timeout=20):
         if "http" not in url:
@@ -262,14 +262,14 @@ class DocrawlClient:
 
         self._execute_function('get_current_url', inp, timeout)
 
-    def close_browser(self, timeout=10):
+    def close_browser(self, timeout=70):
         """Launch close_browser function from core."""
         self._execute_function('close_browser', None, timeout)
 
-        pid = self.get_browser_meta_data()['browser']['pid']
+        # pid = self.get_browser_meta_data()['browser']['pid']
 
-        with suppress(Exception):
-            psutil.Process(pid).terminate()
+        # with suppress(Exception):
+        #     psutil.Process(pid).terminate()
 
         docrawl_logger.warning(f'Is browser closed: {self.is_browser_active()}')
 
