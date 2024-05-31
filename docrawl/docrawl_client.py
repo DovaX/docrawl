@@ -70,6 +70,7 @@ class DocrawlClient:
         browser_meta_data = {
             "browser": {"driver": driver, "headless": headless, "proxy": proxy},
             "function": {"name": "init_function", "input": None, "done": False, "error": None},
+            "request": None
         }
 
         self.set_browser_meta_data(browser_meta_data)
@@ -160,6 +161,16 @@ class DocrawlClient:
         setup()
         crawler = CrawlerRunner()
         crawler.crawl(DocrawlSpider, docrawl_client=self)
+
+    def restart_browser(self, driver='Firefox', in_browser=False, proxy=None, as_new=False):
+        """
+        Terminate any active browser (if exists/crashed) and open a new one.
+
+        param as_new: bool, if True, the browser will be opened with a new `browser_metadata`
+        """
+        self._execute_function('restart_browser', None)
+        if as_new:
+            self._initialize_browser_metadata(driver=driver, headless=not in_browser, proxy=proxy)
 
     def load_website(self, url, timeout=20):
         if "http" not in url:

@@ -83,10 +83,7 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
         self.kv_redis_key_elements = self.docrawl_client.kv_redis_keys.get('elements', 'elements')
 
         self.browser = self._initialise_browser()
-        browser_meta_data = self.docrawl_client.get_browser_meta_data()
-        browser_meta_data['browser']['pid'] = self._determine_browser_pid()
 
-        self.docrawl_client.set_browser_meta_data(browser_meta_data)
         self.screenshot_thread = None #needs to be initialized to None before execution
         self.start_requests()
 
@@ -155,10 +152,45 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                 self.browser = webdriver.Chrome(options=self.options)
 
         window_size_x = 1820
-
         self.browser.set_window_size(window_size_x, 980)
 
+        browser_meta_data = self.docrawl_client.get_browser_meta_data()
+        browser_meta_data['browser']['pid'] = self._determine_browser_pid()
+        if browser_meta_data.get('request'):
+            browser_meta_data['request']['loaded'] = False
+        self.docrawl_client.set_browser_meta_data(browser_meta_data)
+
         return self.browser
+
+    def _close_browser(self, inp):
+        """
+        Close browser (remove driver instance).
+
+        :param browser: driver instance
+        """
+        try:
+            self.browser.quit()
+            '''
+            if not browser.current_url:
+                time.sleep(1)
+                close_browser(browser)
+            '''
+        except ConnectionRefusedError:
+            pass
+        except Exception as e:
+            docrawl_logger.error(f'Error while closing the browser: {e}')
+
+        # Remove proxy after closing browser instance
+        proxy = {'ip': '', 'port': '', 'username': '', 'password': ''}
+        browser_meta_data = self.docrawl_client.get_browser_meta_data()
+        browser_meta_data['browser']['proxy'] = proxy
+        # browser_meta_data['request']['loaded'] = False
+        self.docrawl_client.set_browser_meta_data(browser_meta_data)
+
+    def _restart_browser(self):
+        """Terminate any active browser (if exists/crashed) and open a new one, while retaining `browser_metadata`."""
+        self._close_browser()
+        self.browser = self._initialise_browser()
 
     def __del__(self):
         self.browser.quit()
@@ -231,8 +263,8 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
             if self.driver_type == 'Firefox':
                 browser_pid = self.browser.capabilities['moz:processID']
             elif self.driver_type == 'Chrome':
-                self.browser.service.process
-                browser_pid = psutil.Process(self.browser.service.process.pid).pid
+                # browser_pid = psutil.Process(self.browser.service.process.pid).pid
+                browser_pid = self.browser.service.process.pid
 
             docrawl_logger.success(f'Browser PID: {browser_pid}')
         except Exception as e:
@@ -686,33 +718,6 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                 f.write(url)
         except Exception as e:
             docrawl_logger.error(f'Error while getting current URL: {e}')
-
-    def _close_browser(self, inp):
-        """
-        Closes browser (removes driver instance).
-            :param browser: driver instance
-        """
-
-        try:
-            self.browser.quit()
-            '''
-            if not browser.current_url:
-                time.sleep(1)
-                close_browser(browser)
-            '''
-
-
-            # Remove proxy after closing browser instance
-            proxy = {'ip': '', 'port': '', 'username': '', 'password': ''}
-            browser_meta_data = self.docrawl_client.get_browser_meta_data()
-            browser_meta_data['browser']['proxy'] = proxy
-
-            self.docrawl_client.set_browser_meta_data(browser_meta_data)
-
-        except ConnectionRefusedError:
-            pass
-        except Exception as e:
-            docrawl_logger.error(f'Error while closing the browser: {e}')
 
     def _scroll_web_page(self, inp):
         """
