@@ -159,7 +159,7 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
         if browser_meta_data.get('request'):
             browser_meta_data['request']['loaded'] = False
         self.docrawl_client.set_browser_meta_data(browser_meta_data)
-        docrawl_logger.warning(f'Browser settings: {browser_meta_data}')
+        docrawl_logger.info(f'Browser settings: {browser_meta_data}')
 
         return self.browser
 
@@ -347,7 +347,6 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
             raise NotImplementedError(f"Screenshot is not implemented for {self.browser} browser")
 
         self.docrawl_client.set_browser_screenshot(string)
-        docrawl_logger.warning('SCREENSHOT CREATED')
 
     def _take_png_screenshot(self, inp):
         """
@@ -1023,7 +1022,6 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                         self._update_proxy(proxy)
 
                     self.browser.get(spider_request['url'])
-                    docrawl_logger.info(f'Page loaded: {spider_request["url"]}')
                     self.page = Selector(text=self.browser.page_source)
 
                     spider_request['loaded'] = True

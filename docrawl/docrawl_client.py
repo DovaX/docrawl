@@ -97,7 +97,7 @@ class DocrawlClient:
             # docrawl_logger.info('Page is still loading, waiting 0.5 sec ...')
 
         if is_page_loaded:
-            docrawl_logger.warning('Page loaded')
+            docrawl_logger.warning(f'Page loaded: {self.get_browser_meta_data()["request"]["url"]}')
         else:
             docrawl_logger.error('Page was not loaded')
             raise PageDidNotLoadError()
