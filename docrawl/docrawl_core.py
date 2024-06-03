@@ -24,7 +24,6 @@ from webdriver_manager.firefox import GeckoDriverManager
 
 from docrawl.docrawl_logger import docrawl_logger
 from docrawl.elements import PREDEFINED_TAGS, Element, ElementType, classify_element_by_xpath
-from docrawl.errors import BrowserNotOpenError
 
 # Due to the problems with selenium wire on linux systems
 try:
