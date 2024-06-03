@@ -61,10 +61,13 @@ class DocrawlClient:
         return self.kv_redis.get(key=self._kv_redis_key_screenshot)
 
     def is_browser_active(self):
+        # NOTE: Not sure anywhere, it only checks if the process exists in a process list, not if it's active
         # TODO: finish later
-        pid = self.get_browser_meta_data()['browser'].get('pid', 0)
-
-        return psutil.pid_exists(pid)
+        pid = self.get_browser_meta_data()['browser']['pid']
+        if pid is None:
+            return False
+        else:
+            return psutil.pid_exists(pid)
 
     def _initialize_browser_metadata(self, driver, headless, proxy=None):
         browser_meta_data = {
@@ -271,7 +274,7 @@ class DocrawlClient:
         # with suppress(Exception):
         #     psutil.Process(pid).terminate()
 
-        docrawl_logger.warning(f'Is browser closed: {self.is_browser_active()}')
+        # docrawl_logger.warning(f'Is browser closed: {self.is_browser_active()}')
 
     def scroll_web_page(self, scroll_to, scroll_by, scroll_max, timeout=20):
         """
