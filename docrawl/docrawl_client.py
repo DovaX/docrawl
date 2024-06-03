@@ -68,14 +68,14 @@ class DocrawlClient:
 
     def _initialize_browser_metadata(self, driver, headless, proxy=None):
         browser_meta_data = {
-            "browser": {"driver": driver, "headless": headless, "proxy": proxy},
+            "browser": {"driver": driver, "headless": headless, "proxy": proxy, "pid": None},
             "function": {"name": "init_function", "input": None, "done": False, "error": None},
-            "request": None
+            "request": {"url": None, "loaded": False}
         }
 
         self.set_browser_meta_data(browser_meta_data)
 
-    def _wait_until_page_is_loaded(self, timeout=20):
+    def _wait_until_page_is_loaded(self, timeout=60):
         # Load spider_requests and spider_functions
         try:
             is_page_loaded = self.get_browser_meta_data()['request']['loaded']
@@ -91,15 +91,15 @@ class DocrawlClient:
             except:
                 is_page_loaded = False
             time.sleep(0.5)
-            docrawl_logger.info('Page is still loading, waiting 0.5 sec ...')
+            # docrawl_logger.info('Page is still loading, waiting 0.5 sec ...')
 
         if is_page_loaded:
-            docrawl_logger.success('Page loaded')
+            docrawl_logger.warning('Page loaded')
         else:
             docrawl_logger.error('Page was not loaded')
             raise PageDidNotLoadError()
 
-    def _wait_until_function_is_done(self, timeout):
+    def _wait_until_function_is_done(self, timeout=60):
         # Load spider_requests and spider_functions
         try:
             spider_function = self.get_browser_meta_data()['function']
@@ -117,7 +117,7 @@ class DocrawlClient:
             except:
                 is_function_done = False
             time.sleep(0.5)
-            docrawl_logger.info('Function is still running, waiting 0.5 sec ...')
+            # docrawl_logger.info('Function is still running, waiting 0.5 sec ...')
 
         if is_function_done:
             if function_error_message is None:
