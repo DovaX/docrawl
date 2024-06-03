@@ -161,10 +161,7 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
         :param browser: driver instance
         """
         try:
-            start_time = time.time()
             self.browser.quit()
-            end_time = time.time()
-            docrawl_logger.info(f'Browser closed in {end_time - start_time} seconds')
         except ConnectionRefusedError:
             pass
         except Exception as e:
