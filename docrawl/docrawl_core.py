@@ -162,8 +162,8 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
         """
         try:
             self.browser.quit()
-        except ConnectionRefusedError:
-            pass
+        except ConnectionRefusedError as e:
+            docrawl_logger.error(f'Error while closing the browser: {e}')
         except Exception as e:
             docrawl_logger.error(f'Error while closing the browser: {e}')
 

@@ -61,7 +61,8 @@ class DocrawlClient:
         return self.kv_redis.get(key=self._kv_redis_key_screenshot)
 
     def is_browser_active(self):
-        # NOTE: Not sure anywhere, it only checks if the process exists in a process list, not if it's active
+        # NOTE: Not used anywhere, it only checks if the process exists in OS process list, not if
+        # it's active
         # TODO: finish later
         pid = self.get_browser_meta_data()['browser']['pid']
         if pid is None:
@@ -94,7 +95,7 @@ class DocrawlClient:
             except:
                 is_page_loaded = False
             time.sleep(0.5)
-            # docrawl_logger.info('Page is still loading, waiting 0.5 sec ...')
+            docrawl_logger.info('Page is still loading, waiting 0.5 sec ...')
 
         if is_page_loaded:
             docrawl_logger.warning(f'Page loaded: {self.get_browser_meta_data()["request"]["url"]}')
@@ -120,7 +121,7 @@ class DocrawlClient:
             except:
                 is_function_done = False
             time.sleep(0.5)
-            # docrawl_logger.info('Function is still running, waiting 0.5 sec ...')
+            docrawl_logger.info('Function is still running, waiting 0.5 sec ...')
 
         if is_function_done:
             if function_error_message is None:
@@ -265,9 +266,12 @@ class DocrawlClient:
 
         self._execute_function('get_current_url', inp, timeout)
 
-    def close_browser(self, timeout=70):
+    def close_browser(self, timeout=10):
         """Launch close_browser function from core."""
         self._execute_function('close_browser', None, timeout)
+        browser_metadata = self.get_browser_meta_data()
+        browser_metadata['browser']['proxy'] = None
+        self.set_browser_meta_data(browser_metadata)
 
         # pid = self.get_browser_meta_data()['browser']['pid']
 
