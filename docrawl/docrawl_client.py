@@ -61,20 +61,25 @@ class DocrawlClient:
         return self.kv_redis.get(key=self._kv_redis_key_screenshot)
 
     def is_browser_active(self):
+        # NOTE: Not used anywhere, it only checks if the process exists in OS process list, not if
+        # it's active
         # TODO: finish later
-        pid = self.get_browser_meta_data()['browser'].get('pid', 0)
-
-        return psutil.pid_exists(pid)
+        pid = self.get_browser_meta_data()['browser']['pid']
+        if pid is None:
+            return False
+        else:
+            return psutil.pid_exists(pid)
 
     def _initialize_browser_metadata(self, driver, headless, proxy=None):
         browser_meta_data = {
-            "browser": {"driver": driver, "headless": headless, "proxy": proxy},
+            "browser": {"driver": driver, "headless": headless, "proxy": proxy, "pid": None},
             "function": {"name": "init_function", "input": None, "done": False, "error": None},
+            "request": {"url": None, "loaded": False}
         }
 
         self.set_browser_meta_data(browser_meta_data)
 
-    def _wait_until_page_is_loaded(self, timeout=20):
+    def _wait_until_page_is_loaded(self, timeout=60):
         # Load spider_requests and spider_functions
         try:
             is_page_loaded = self.get_browser_meta_data()['request']['loaded']
@@ -93,12 +98,12 @@ class DocrawlClient:
             docrawl_logger.info('Page is still loading, waiting 0.5 sec ...')
 
         if is_page_loaded:
-            docrawl_logger.success('Page loaded')
+            docrawl_logger.warning(f'Page loaded: {self.get_browser_meta_data()["request"]["url"]}')
         else:
             docrawl_logger.error('Page was not loaded')
             raise PageDidNotLoadError()
 
-    def _wait_until_function_is_done(self, timeout):
+    def _wait_until_function_is_done(self, timeout=60):
         # Load spider_requests and spider_functions
         try:
             spider_function = self.get_browser_meta_data()['function']
@@ -160,6 +165,16 @@ class DocrawlClient:
         setup()
         crawler = CrawlerRunner()
         crawler.crawl(DocrawlSpider, docrawl_client=self)
+
+    def restart_browser(self, driver='Firefox', in_browser=False, proxy=None, as_new=False):
+        """
+        Terminate any active browser (if exists/crashed) and open a new one.
+
+        param as_new: bool, if True, the browser will be opened with a new `browser_metadata`
+        """
+        if as_new:
+            self._initialize_browser_metadata(driver=driver, headless=not in_browser, proxy=proxy)
+        self._execute_function('restart_browser', None, timeout=120)
 
     def load_website(self, url, timeout=20):
         if "http" not in url:
@@ -254,13 +269,16 @@ class DocrawlClient:
     def close_browser(self, timeout=10):
         """Launch close_browser function from core."""
         self._execute_function('close_browser', None, timeout)
+        browser_metadata = self.get_browser_meta_data()
+        browser_metadata['browser']['proxy'] = None
+        self.set_browser_meta_data(browser_metadata)
 
-        pid = self.get_browser_meta_data()['browser']['pid']
+        # pid = self.get_browser_meta_data()['browser']['pid']
 
-        with suppress(Exception):
-            psutil.Process(pid).terminate()
+        # with suppress(Exception):
+        #     psutil.Process(pid).terminate()
 
-        docrawl_logger.warning(f'Is browser closed: {self.is_browser_active()}')
+        # docrawl_logger.warning(f'Is browser closed: {self.is_browser_active()}')
 
     def scroll_web_page(self, scroll_to, scroll_by, scroll_max, timeout=20):
         """

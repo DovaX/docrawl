@@ -1,29 +1,29 @@
-import traceback
 import datetime
-import scrapy
-import requests
-import time
 import os
 import re
-import psutil
+import time
+import traceback
+
 import lxml.html
 import pandas as pd
-
+import psutil
+import requests
+import scrapy
+from scrapy.selector import Selector
+from selenium.common.exceptions import WebDriverException
+from selenium.webdriver import ChromeOptions, FirefoxOptions
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.proxy import Proxy, ProxyType
-from selenium.webdriver import FirefoxOptions, ChromeOptions
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.firefox.service import Service
 from selenium.webdriver.remote.webdriver import WebElement
-
-from webdriver_manager.firefox import GeckoDriverManager
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support.ui import WebDriverWait
+from urllib3.exceptions import MaxRetryError
 from webdriver_manager.chrome import ChromeDriverManager
-
-from scrapy.selector import Selector
+from webdriver_manager.firefox import GeckoDriverManager
 
 from docrawl.docrawl_logger import docrawl_logger
-from docrawl.elements import Element, ElementType, classify_element_by_xpath, PREDEFINED_TAGS
+from docrawl.elements import PREDEFINED_TAGS, Element, ElementType, classify_element_by_xpath
 
 # Due to the problems with selenium wire on linux systems
 try:
@@ -79,39 +79,21 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
     def __init__(self, *a, **kw):
         self.docrawl_client = kw['docrawl_client']
 
-        self.kv_redis_key_screenshot = self.docrawl_client.kv_redis_keys.get('screenshot', 'screenshot')
+        self.kv_redis_key_screenshot = self.docrawl_client.kv_redis_keys.get(
+            'screenshot', 'screenshot'
+        )
         self.kv_redis_key_elements = self.docrawl_client.kv_redis_keys.get('elements', 'elements')
 
         self.browser = self._initialise_browser()
-        browser_meta_data = self.docrawl_client.get_browser_meta_data()
-        browser_meta_data['browser']['pid'] = self._determine_browser_pid()
 
-        self.docrawl_client.set_browser_meta_data(browser_meta_data)
-        self.screenshot_thread = None #needs to be initialized to None before execution
+        self.screenshot_thread = None  # needs to be initialized to None before execution
         self.start_requests()
 
     def _initialise_browser(self):
         browser_meta_data = self.docrawl_client.get_browser_meta_data()
-
-        docrawl_logger.info(f'Browser settings: {browser_meta_data}')
-
-        try:
-            self.driver_type = browser_meta_data['browser']['driver']
-        except Exception as e:
-            docrawl_logger.error(f'Error while loading driver type information: {e}')
-            self.driver_type = 'Firefox'
-
-        try:
-            self.headless = browser_meta_data['browser']['headless']
-        except Exception as e:
-            docrawl_logger.error(f'Error while loading headless mode information: {e}')
-            self.headless = False
-
-        try:
-            proxy_info = browser_meta_data['browser']['proxy']
-        except Exception as e:
-            docrawl_logger.warning(f'Error while loading proxy information: {e}')
-            proxy_info = None
+        self.driver_type = browser_meta_data['browser']['driver']
+        self.headless = browser_meta_data['browser']['headless']
+        proxy_info = browser_meta_data['browser']['proxy']
 
         if self.driver_type == 'Firefox':
             self.options = FirefoxOptions()
@@ -121,18 +103,22 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
 
             if self.headless:
                 self.options.add_argument("--headless")
-
                 # For headless mode different width of window is needed
                 window_size_x = 1450
 
             try:
-                try:
-                    service = Service(GeckoDriverManager().install())
-                except Exception as e:
-                    service = None
-                    docrawl_logger.warning("GeckoDriverManager update was not successful - launching latest Firefox version instead"+str(e))
-                
-                self.browser = webdriver.Firefox(options=self.options, service=service, seleniumwire_options=sw_options)
+                service = Service(GeckoDriverManager().install())
+            except Exception as e:
+                service = None
+                docrawl_logger.warning(
+                    "GeckoDriverManager update was not successful - launching latest Firefox version instead"
+                    + str(e)
+                )
+
+            try:
+                self.browser = webdriver.Firefox(
+                    options=self.options, service=service, seleniumwire_options=sw_options
+                )
             except Exception as e:
                 docrawl_logger.error(f'Error while creating Firefox instance {e}')
                 self.browser = webdriver.Firefox(options=self.options)
@@ -149,20 +135,71 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                 window_size_x = 1450
 
             try:
-                self.browser = webdriver.Chrome(options=self.options, service=Service(ChromeDriverManager().install()), seleniumwire_options=sw_options)
+                self.browser = webdriver.Chrome(
+                    options=self.options, service=Service(ChromeDriverManager().install()),
+                    seleniumwire_options=sw_options
+                )
             except Exception as e:
                 docrawl_logger.error(f'Error while creating Chrome instance {e}')
                 self.browser = webdriver.Chrome(options=self.options)
 
         window_size_x = 1820
-
         self.browser.set_window_size(window_size_x, 980)
 
+        browser_meta_data['browser']['pid'] = self._determine_browser_pid()
+        if browser_meta_data.get('request'):
+            browser_meta_data['request']['loaded'] = False
+        self.docrawl_client.set_browser_meta_data(browser_meta_data)
+        docrawl_logger.info(f'Browser settings: {browser_meta_data}')
+
         return self.browser
+
+    def _close_browser(self, inp):
+        """
+        Close browser (remove driver instance).
+
+        :param browser: driver instance
+        """
+        try:
+            self.browser.quit()
+        except ConnectionRefusedError as e:
+            docrawl_logger.error(f'Error while closing the browser: {e}')
+        except Exception as e:
+            docrawl_logger.error(f'Error while closing the browser: {e}')
+
+        # # Remove proxy after closing browser instance
+        # proxy = {'ip': '', 'port': '', 'username': '', 'password': ''}
+        # browser_meta_data = self.docrawl_client.get_browser_meta_data()
+        # browser_meta_data['browser']['proxy'] = proxy
+        # # browser_meta_data['request']['loaded'] = False
+        # self.docrawl_client.set_browser_meta_data(browser_meta_data)
+
+    def _restart_browser(self, inp=None):
+        """Terminate any active browser (if exists/crashed) and open a new one, while retaining `browser_metadata`."""
+        if self.is_browser_active():
+            self._close_browser(inp)
+        else:
+            docrawl_logger.error("Browser crashed")
+
+        self.browser = self._initialise_browser()
+        docrawl_logger.warning("Browser restarted")
 
     def __del__(self):
         self.browser.quit()
 
+    def is_browser_active(self):
+        try:
+            pid = self.docrawl_client.get_browser_meta_data()['browser']['pid']
+            proc = psutil.Process(pid)
+            is_process_active = proc.status() not in [
+                psutil.STATUS_ZOMBIE,
+                psutil.STATUS_DEAD,
+                psutil.STATUS_STOPPED,
+                psutil.STATUS_TRACING_STOP,
+            ]
+            return is_process_active
+        except (KeyError, psutil.NoSuchProcess):
+            return False
 
     def _prepare_proxy_string(self, proxy_info: dict):
         if proxy_info is None or any([not proxy_info['ip'], not proxy_info['port']]):
@@ -172,12 +209,12 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
             proxy_port = proxy_info['port']
             proxy_username = proxy_info['username']
             proxy_password = proxy_info['password']
-    
+
             if proxy_username and proxy_password:
                 proxy = f'http://{proxy_username}:{proxy_password}@{proxy_ip}:{proxy_port}'
             else:
                 proxy = f'{proxy_ip}:{proxy_port}'
-    
+
             return proxy
 
     def _update_proxy(self, proxy_info: dict):
@@ -185,7 +222,7 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
             return None
         else:
             proxy = self._prepare_proxy_string(proxy_info)
-    
+
             self.browser.proxy = {"http": proxy, "https": proxy, "verify_ssl": False}
             docrawl_logger.warning("Proxy updated")
 
@@ -200,18 +237,14 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
             return None
         else:
             proxy = self._prepare_proxy_string(proxy_info)
-    
+
             # Proxy with authentication
             if 'http://' in proxy:
                 # selenium-wire proxy settings
                 sw_options = {
-                    'proxy': {
-                        'http': proxy,
-                        'https': proxy,
-                        'no_proxy': 'localhost,127.0.0.1'
-                    }
+                    'proxy': {'http': proxy, 'https': proxy, 'no_proxy': 'localhost,127.0.0.1'}
                 }
-    
+
             # Proxy without authentication
             else:
                 sw_options = None
@@ -219,25 +252,15 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                 firefox_proxies.ssl_proxy = proxy
                 firefox_proxies.http_proxy = proxy
                 firefox_proxies.proxy_type = ProxyType.MANUAL
-    
                 self.options.proxy = firefox_proxies
-    
+
             return sw_options
 
     def _determine_browser_pid(self):
-        browser_pid = None
-
-        try:
-            if self.driver_type == 'Firefox':
-                browser_pid = self.browser.capabilities['moz:processID']
-            elif self.driver_type == 'Chrome':
-                self.browser.service.process
-                browser_pid = psutil.Process(self.browser.service.process.pid).pid
-
-            docrawl_logger.success(f'Browser PID: {browser_pid}')
-        except Exception as e:
-            docrawl_logger.error(f'Error while determining browser PID: {e}')
-
+        if self.driver_type == 'Firefox':
+            browser_pid = self.browser.capabilities['moz:processID']
+        elif self.driver_type == 'Chrome':
+            browser_pid = self.browser.service.process.pid
         return browser_pid
 
     def start_requests(self):
@@ -250,7 +273,6 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
 
     def _init_function(self, inp):
         docrawl_logger.warning("_init_function is being executed")
-        
 
     def _click_class(self, inp):
         class_input = inp.get("filename")
@@ -292,7 +314,6 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
             raise NotImplementedError(f"Screenshot is not implemented for {self.browser} browser")
 
         self.docrawl_client.set_browser_screenshot(string)
-        docrawl_logger.warning('SCREENSHOT CREATED')
 
     def _take_png_screenshot(self, inp):
         """
@@ -352,7 +373,7 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
             :param inp: list, inputs from launcher (incl_tables, incl_bullets, output_dir)
             :param browser: webdriver, browser instance
         """
-        
+
         docrawl_logger.warning("Scan web page has started")
 
         incl_tables = inp['incl_tables']
@@ -452,7 +473,6 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                     td_tags = tr_tag.xpath('.//td')  # <td> = table data
 
                     row = []
-
                     '''
                         # Sometimes between td tags there more than 1 tag with text, so that would
                         # be proceeded as separate values despite of fact it should be in one cell.
@@ -473,7 +493,6 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
 
                     for td_tag in td_tags:
                         data = td_tag.xpath('.//text()').getall()
-
                         '''
                             Some table cells include \n or unicode symbols,
                             so that creates unneccesary "empty" columns and thus
@@ -523,16 +542,17 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
             # attributes = element.get_property('attributes')
             attributes = self.browser.execute_script(
                 'var items = {}; for (index = 0; index < arguments[0].attributes.length; ++index) { items[arguments[0].attributes[index].name] = arguments[0].attributes[index].value }; return items;',
-                element)
+                element
+            )
 
             # docrawl_logger.warning(attributes)
             element_data = {
-                'tag_name': re.split('//|/', xpath)[-1].split('[')[0],
-                'text': text,
+                'tag_name': re.split('//|/', xpath)[-1].split('[')[0], 'text': text,
                 'attributes': attributes
             }
 
             return element_data
+
         global new_elements_all
         new_elements_all = []
 
@@ -677,42 +697,10 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
             :param page: :param browser: driver instance
             :param inp: list, inputs from launcher (filename)
         """
-
         filename = inp['filename']
         url = str(self.browser.current_url)
-
-        try:
-            with open(filename, 'w+', encoding="utf-8") as f:
-                f.write(url)
-        except Exception as e:
-            docrawl_logger.error(f'Error while getting current URL: {e}')
-
-    def _close_browser(self, inp):
-        """
-        Closes browser (removes driver instance).
-            :param browser: driver instance
-        """
-
-        try:
-            self.browser.quit()
-            '''
-            if not browser.current_url:
-                time.sleep(1)
-                close_browser(browser)
-            '''
-
-
-            # Remove proxy after closing browser instance
-            proxy = {'ip': '', 'port': '', 'username': '', 'password': ''}
-            browser_meta_data = self.docrawl_client.get_browser_meta_data()
-            browser_meta_data['browser']['proxy'] = proxy
-
-            self.docrawl_client.set_browser_meta_data(browser_meta_data)
-
-        except ConnectionRefusedError:
-            pass
-        except Exception as e:
-            docrawl_logger.error(f'Error while closing the browser: {e}')
+        with open(filename, 'w+', encoding="utf-8") as f:
+            f.write(url)
 
     def _scroll_web_page(self, inp):
         """
@@ -758,7 +746,9 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
 
         image_xpath = inp['image_xpath']
         filename = inp['filename']
-        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; WOW64; rv:50.0) Gecko/20100101 Firefox/50.0'}
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; WOW64; rv:50.0) Gecko/20100101 Firefox/50.0'
+        }
 
         # If entered filename contains extension -> drop extension
         if '.' in filename:
@@ -870,10 +860,10 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
         for xpath in xpaths:
             xpath = self._prepare_xpath_for_extraction(xpath)
             data = self.page.xpath(xpath).extract()
-            
+
             if not data:
                 data = ['None']
-                
+
             docrawl_logger.info(f'Data from extracted XPath: {data}')
             result.append(data)
 
@@ -899,7 +889,9 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
 
         # Try to find headers within <th> tags
         for th_tag in ths:
-            headers.append(''.join(th_tag.xpath('.//text()').extract()).replace('\n', '').replace('\t', ''))
+            headers.append(
+                ''.join(th_tag.xpath('.//text()').extract()).replace('\n', '').replace('\t', '')
+            )
 
         if trs:
             for j, tr in enumerate(trs):
@@ -909,7 +901,6 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                 row = []
                 for td in td_tags:
                     data = td.xpath('.//text()').getall()
-
                     '''r
                         Some table cells include \n or unicode symbols,
                         so that creates unneccesary "empty" columns and thus
@@ -974,45 +965,18 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                 self.screenshot_thread.stop()
                 self.screenshot_thread.join()
                 self.screenshot_thread = None
-                
 
     def parse(self, response):
-        
-        browser_meta_data=self.docrawl_client.get_browser_meta_data()
-        browser_request = browser_meta_data.get("request")
-        while browser_request is None:
-            
-            
-            # docrawl_logger.info('Waiting for getting a request in browser metadata')
-            time.sleep(1)
-            
-            browser_meta_data=self.docrawl_client.get_browser_meta_data()
-            browser_request = browser_meta_data.get("request")
-        
-        
-        
-        #self.browser.get(browser_request.get('url')) #Duplicate page load # disabled #if not needed, deprecate after 03/2024
-        #time.sleep(1)
-        docrawl_core_done = False
-        while not docrawl_core_done:
-            
+        while True:
             self.increment_time_of_screenshot_thread()
-                        
-                
+
             browser_meta_data = self.docrawl_client.get_browser_meta_data()
             spider_request = browser_meta_data['request']
             spider_function = browser_meta_data['function']
             proxy = browser_meta_data['browser']['proxy']
 
             try:
-                
-                time.sleep(1)
-                # docrawl_logger.info('Docrawl core loop, page loaded: '+str(spider_request['loaded'])+', function name :'+str(spider_function["name"])+" function done: "+str(spider_function["done"]))
-
-                if not spider_request['loaded']:
-                    
-                    #self.initialize_screenshot_thread_if_not_existing()
-
+                if spider_request['url'] and not spider_request['loaded']:
                     if proxy != self.browser.proxy:
                         docrawl_logger.warning('Proxy was updated in meanwhile')
                         self._update_proxy(proxy)
@@ -1022,39 +986,39 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
 
                     spider_request['loaded'] = True
                     browser_meta_data['request'] = spider_request
-
-                    
-
                     self.docrawl_client.set_browser_meta_data(browser_meta_data)
-
-                if not spider_function['done']:
+                elif not spider_function['done']:
                     function_str = spider_function['name']
-
                     inp = spider_function['input']
-                    # docrawl_logger.info(f'Function input from docrawl core: {inp}')
-                    
-                    
-                    # docrawl_logger.warning("Preparing for finishing undone docrawl function")
-                    if f'_{function_str}'=="_take_png_screenshot":
-                        #skip standard execution and run in a different thread
+
+                    if f'_{function_str}' == "_take_png_screenshot":
+                        # skip standard execution and run in a different thread
                         self.initialize_screenshot_thread_if_not_existing(inp["filename"])
-                    else: #Standard behaviour    
+                    else:  # Standard behaviour
+                        docrawl_logger.warning("Running docrawl function:" + f'_{function_str}')
                         getattr(self, f'_{function_str}')(inp=inp)
-                        
-                        docrawl_logger.warning("Running docrawl function:"+f'_{function_str}')
 
                     spider_function['done'] = True
                     spider_function['error'] = None
                     browser_meta_data['function'] = spider_function
                     self.docrawl_client.set_browser_meta_data(browser_meta_data)
+                else:
+                    time.sleep(1)
 
-            except KeyboardInterrupt:
-                break
+            except (WebDriverException, MaxRetryError) as e:
+                docrawl_logger.error('Browser not responding')
+                docrawl_logger.error(traceback.format_exc())
+                self._restart_browser()
+
             except Exception as e:
                 docrawl_logger.error(f'Error while executing docrawl loop: {e}')
                 docrawl_logger.error(traceback.format_exc())
 
+                browser_meta_data = self.docrawl_client.get_browser_meta_data()
                 spider_function['done'] = True
                 spider_function['error'] = str(e)
                 browser_meta_data['function'] = spider_function
                 self.docrawl_client.set_browser_meta_data(browser_meta_data)
+
+            except KeyboardInterrupt:
+                break
