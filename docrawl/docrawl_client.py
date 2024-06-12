@@ -108,7 +108,6 @@ class DocrawlClient:
         try:
             spider_function = self.get_browser_meta_data()['function']
             is_function_done = spider_function['done']
-            function_error_message = spider_function['error']
         except Exception as e:
             docrawl_logger.error(f'Error while loading is_function_done: {e}')
             is_function_done = True
@@ -116,19 +115,18 @@ class DocrawlClient:
         # Then check if function is done
         timeout_start = time.time()
         while not is_function_done and time.time() < timeout_start + timeout:
-            try:
-                is_function_done = self.get_browser_meta_data()['function']['done']
-            except:
-                is_function_done = False
+            spider_function = self.get_browser_meta_data()['function']
+            is_function_done = spider_function['done']
             time.sleep(0.5)
             docrawl_logger.info('Function is still running, waiting 0.5 sec ...')
 
         if is_function_done:
-            if function_error_message is None:
+            if spider_function["error"] is None:
                 docrawl_logger.success('Spider function finished successfully')
             else:
-                docrawl_logger.error(f'Spider function failed: {function_error_message}')
+                docrawl_logger.error(f'Spider function failed: {spider_function["error"]}')
                 raise SpiderFunctionError(spider_function['error'])
+
         else:
             docrawl_logger.error('Function was not finished')
             raise TimeoutError('Spider function timed out')

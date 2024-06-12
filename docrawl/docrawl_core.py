@@ -10,7 +10,7 @@ import psutil
 import requests
 import scrapy
 from scrapy.selector import Selector
-from selenium.common.exceptions import WebDriverException
+from selenium.common.exceptions import NoSuchElementException, WebDriverException
 from selenium.webdriver import ChromeOptions, FirefoxOptions
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.proxy import Proxy, ProxyType
@@ -798,15 +798,19 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
 
         xpath = xpath.removesuffix('//text()').rstrip('/')
         docrawl_logger.info(f'Searching for element to click: {xpath}')
-        element = self.browser.find_element(By.XPATH, xpath)
 
-        if element.is_enabled():
-            docrawl_logger.info('Button is enabled')
-            element.click()
-        else:
-            docrawl_logger.warning('Button is not enabled, trying to enable it')
-            self.browser.execute_script("arguments[0].removeAttribute('disabled','disabled')", element)
-            element.click()
+        try:
+            element = self.browser.find_element(By.XPATH, xpath)
+
+            if element.is_enabled():
+                docrawl_logger.info('Button is enabled')
+                element.click()
+            else:
+                docrawl_logger.warning('Button is not enabled, trying to enable it')
+                self.browser.execute_script("arguments[0].removeAttribute('disabled','disabled')", element)
+                element.click()
+        except NoSuchElementException:
+            docrawl_logger.error('Element not found')
 
     def _click_name(self, inp):
         text = inp['text']
