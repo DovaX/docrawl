@@ -1006,8 +1006,8 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                     spider_function['error'] = None
                     browser_meta_data['function'] = spider_function
                     self.docrawl_client.set_browser_meta_data(browser_meta_data)
-                else:
-                    time.sleep(1)
+                    
+                time.sleep(1) #keep time increment in all cases, otherwise screenshots do not load correctly if the website renders dynamic elements (e.g. forloop blog)
 
             except (WebDriverException, MaxRetryError) as e:
                 docrawl_logger.error('Browser not responding')
