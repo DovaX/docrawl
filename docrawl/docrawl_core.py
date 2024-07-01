@@ -991,6 +991,7 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                     spider_request['loaded'] = True
                     browser_meta_data['request'] = spider_request
                     self.docrawl_client.set_browser_meta_data(browser_meta_data)
+                    time.sleep(1) #make sure the screenshot is made after website is loaded
                 elif not spider_function['done']:
                     function_str = spider_function['name']
                     inp = spider_function['input']
