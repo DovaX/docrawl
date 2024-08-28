@@ -15,6 +15,7 @@ from selenium.common.exceptions import (
     NoSuchElementException,
     WebDriverException,
 )
+
 from selenium.webdriver import ChromeOptions, FirefoxOptions, ActionChains
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.proxy import Proxy, ProxyType
@@ -26,6 +27,7 @@ from urllib3.exceptions import MaxRetryError
 from webdriver_manager.chrome import ChromeDriverManager
 from webdriver_manager.firefox import GeckoDriverManager
 
+from docrawl.errors import SpiderFunctionError
 from docrawl.docrawl_logger import docrawl_logger
 from docrawl.elements import PREDEFINED_TAGS, Element, ElementType, classify_element_by_xpath
 
@@ -824,8 +826,8 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
     def send_text(self, inp):
         xpath = inp['xpath']
         text = inp['text']
-        element = self.browser.find_element(By.XPATH, xpath)
         try:
+            element = self.browser.find_element(By.XPATH, xpath)
             element.clear()
             ActionChains(self.browser).send_keys_to_element(element, text).perform()
             WebDriverWait(self.browser, 2).until(
