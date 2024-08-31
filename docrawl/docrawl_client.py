@@ -350,5 +350,12 @@ class DocrawlClient:
     def refresh_page_source(self, timeout=30):
         self._execute_function('refresh_page_source', None, timeout)
 
+    def send_text(self, xpath, text, timeout=20):
+        inp = {
+            'xpath': xpath,
+            'text': text
+        }
+        self._execute_function('send_text', inp, timeout)
+
     def __exit__(self):
         self.close_browser()

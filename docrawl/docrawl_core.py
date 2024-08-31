@@ -10,8 +10,12 @@ import psutil
 import requests
 import scrapy
 from scrapy.selector import Selector
-from selenium.common.exceptions import NoSuchElementException, WebDriverException
-from selenium.webdriver import ChromeOptions, FirefoxOptions
+from selenium.common.exceptions import (
+    ElementClickInterceptedException,
+    NoSuchElementException,
+    WebDriverException,
+)
+from selenium.webdriver import ChromeOptions, FirefoxOptions, ActionChains
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.proxy import Proxy, ProxyType
 from selenium.webdriver.firefox.service import Service
@@ -520,7 +524,7 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
 
                 df.dropna(axis=0, how='all', inplace=True)
 
-                text = df
+                text = df.to_json()
 
                 # # If dataframe is not empty
                 # if not df.dropna().empty and len(df.columns) > 1 and len(df) > 1:
@@ -816,7 +820,23 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
         text = inp['text']
 
         self.browser.find_element(By.LINK_TEXT(text)).click()
-        
+
+    def send_text(self, inp):
+        xpath = inp['xpath']
+        text = inp['text']
+        element = self.browser.find_element(By.XPATH, xpath)
+        try:
+            element.clear()
+            ActionChains(self.browser).send_keys_to_element(element, text).perform()
+            WebDriverWait(self.browser, 2).until(
+                lambda: EC.text_to_be_present_in_element_value(xpath, text) or
+                EC.text_to_be_present_in_element(xpath, text)
+            )
+        # Reraise as `SpiderFunctionError` as any `WebDriverException` subclassed error
+        # will get caught by the `except WebDriverException` block in `parse()` loop.
+        except NoSuchElementException as e:
+            raise SpiderFunctionError(str(e)) from e
+
     def _prepare_xpath_for_extraction(self, xpath: str):
         if not xpath.endswith('/text()') and not '@' in xpath.split('/')[-1]:
             xpath += '/text()'
