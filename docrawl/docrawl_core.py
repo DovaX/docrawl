@@ -524,7 +524,7 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
 
                 df.dropna(axis=0, how='all', inplace=True)
 
-                text = df
+                text = df.to_json()
 
                 # # If dataframe is not empty
                 # if not df.dropna().empty and len(df.columns) > 1 and len(df) > 1:
