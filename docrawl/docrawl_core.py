@@ -560,8 +560,8 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
 
             # docrawl_logger.warning(attributes)
             element_data = {
-                'tag_name': element.tag_name,
-                'text': text,
+                'tagName': element.tag_name,
+                'textContent': text,
                 'attributes': attributes
             }
 
@@ -631,7 +631,7 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
             """Skip elements based on their type and 'emptiness' rules."""
             if element.type in [ElementType.TEXT, ElementType.HEADLINE]:
                 # Skip text-based elements with no text or whitespaces only
-                return element.data['text'].strip() == ''
+                return element.data['textContent'].strip() == ''
             else:
                 # TODO: Add checks for other types of elements if necessary
                 pass
