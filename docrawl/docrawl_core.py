@@ -30,6 +30,7 @@ from webdriver_manager.firefox import GeckoDriverManager
 from docrawl.errors import SpiderFunctionError
 from docrawl.docrawl_logger import docrawl_logger
 from docrawl.elements import PREDEFINED_TAGS, Element, ElementType, classify_element_by_xpath
+from docrawl.utils import build_abs_url
 
 # Due to the problems with selenium wire on linux systems
 try:
@@ -448,7 +449,16 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
             return result
 
         def extract_element_data(element: WebElement, xpath: str, element_type: ElementType):
-            if element_type in [ElementType.LINK, ElementType.BUTTON]:
+            attributes = self.browser.execute_script(
+                'var items = {}; for (index = 0; index < arguments[0].attributes.length; ++index) { items[arguments[0].attributes[index].name] = arguments[0].attributes[index].value }; return items;',
+                element
+            )
+
+            if element_type == ElementType.LINK:
+                xpath_new = xpath + '//text()'
+                text = ''.join(self.page.xpath(xpath_new).extract()).strip()
+                attributes['href'] = build_abs_url(attributes['href'], self.browser.current_url)
+            elif element_type == ElementType.BUTTON:
                 xpath_new = xpath + '//text()'
                 text = ''.join(self.page.xpath(xpath_new).extract()).strip()
             elif element_type == ElementType.IMAGE:
@@ -547,12 +557,6 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                 except:
                     xpath = xpath.removesuffix('//text()')
                     text = ''.join(self.page.xpath(xpath).extract()).strip()
-
-            # attributes = element.get_property('attributes')
-            attributes = self.browser.execute_script(
-                'var items = {}; for (index = 0; index < arguments[0].attributes.length; ++index) { items[arguments[0].attributes[index].name] = arguments[0].attributes[index].value }; return items;',
-                element
-            )
 
             # docrawl_logger.warning(attributes)
             element_data = {
