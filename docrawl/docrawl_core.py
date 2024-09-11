@@ -875,13 +875,12 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
             raise SpiderFunctionError(str(e)) from e
 
     def _prepare_xpath_for_extraction(self, xpath: str):
-        if not xpath.endswith('/text()') and not '@' in xpath.split('/')[-1]:
-            xpath += '/text()'
-
         # Extract link from "a" tags
         if xpath.split('/')[-1] == 'a' or xpath.split('/')[-1] == '/a' or xpath.split('/')[-1].startswith('a['):
             xpath += '/@href'
-            
+        elif not xpath.endswith('/text()') and not '@' in xpath.split('/')[-1]:
+            xpath += '/text()'
+
         return xpath
 
     def _extract_xpath(self, inp):
@@ -891,14 +890,18 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
         xpath = inp['xpath']
         filename = inp['filename']  # "extracted_data.txt"
 
+        tag = xpath.split('/')[-1]
         xpath = self._prepare_xpath_for_extraction(xpath)
+        if tag == 'a':
+            data = self.page.xpath(xpath).extract()
+            data = [build_abs_url(scraped_link, self.browser.current_url) for scraped_link in data]
+        else:
+            data = self.page.xpath(xpath).extract()
 
         try:
             write_in_file_mode = inp['write_in_file_mode']
         except:
             write_in_file_mode = "w+"
-
-        data = self.page.xpath(xpath).extract()
 
         if not data:
             data = ['None']

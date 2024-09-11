@@ -28,10 +28,12 @@ def build_abs_url(scraped_url: str, domain_url: Optional[str] = None) -> str:
         raise ValueError("The domain url must be provided if the scraped url is a relative url.")
 
     domain_url = urlparse(domain_url)
-    scraped_segments = scraped_url.path.split('/')
 
-    # If the scraped url is a relative url, build the absolute url.
-    path_segment_list = domain_url.path.split('/')[1:] # Skip the first empty string
-    for segment in scraped_segments:
-        path_segment_list = _compute_next_path_segment(segment, path_segment_list)
-    return f"{domain_url.scheme}://{domain_url.netloc}/{'/'.join(path_segment_list)}"
+    if scraped_url.path.startswith('/'): # Domain-relative link, e.g. /v1/api/boop
+        return f"{domain_url.scheme}://{domain_url.netloc}{scraped_url.path}"
+    else: # Path-relative link, e.g. v1/api/boop
+        scraped_segments = scraped_url.path.split('/')
+        path_segment_list = domain_url.path.split('/')[1:] # Skip the first empty string due to the leading slash
+        for segment in scraped_segments:
+            path_segment_list = _compute_next_path_segment(segment, path_segment_list)
+        return f"{domain_url.scheme}://{domain_url.netloc}/{'/'.join(path_segment_list)}"
