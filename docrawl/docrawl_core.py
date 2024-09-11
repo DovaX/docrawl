@@ -923,7 +923,12 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
 
         for xpath in xpaths:
             xpath = self._prepare_xpath_for_extraction(xpath)
-            data = self.page.xpath(xpath).extract()
+            tag = xpath.split('/')[-1]
+            if tag == 'a':
+                data = self.page.xpath(xpath).extract()
+                data = [build_abs_url(scraped_link, self.browser.current_url) for scraped_link in data]
+            else:
+                data = self.page.xpath(xpath).extract()
 
             if not data:
                 data = ['None']
