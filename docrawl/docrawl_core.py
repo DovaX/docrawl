@@ -1003,9 +1003,10 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
 
             try:
                 if spider_request['url'] and not spider_request['loaded']:
-                    if proxy != self.browser.proxy:
-                        docrawl_logger.warning('Proxy was updated in meanwhile')
-                        self._update_proxy(proxy)
+                    if hasattr(self.browser, "proxy"):
+                        if proxy != self.browser.proxy:
+                            docrawl_logger.warning('Proxy was updated in meanwhile')
+                            self._update_proxy(proxy)
 
                     self.browser.get(spider_request['url'])
                     self.page = Selector(text=self.browser.page_source)
