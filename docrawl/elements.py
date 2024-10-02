@@ -18,7 +18,7 @@ class ElementType(str, Enum):
     CONTEXT = 'context'
     ELEMENT = 'element'
     COOKIES = 'cookies'
-
+    INPUT = 'input'
 
 @dataclass
 class Element:
@@ -69,6 +69,7 @@ LINK_TAGS = ["""
                 and not(contains(@href, "javascript"))  
                 and not(contains(@href, "mailto"))]
                 """]
+INPUT_TAGS = 'input', 'textarea'
 
 # All predefined tags
 PREDEFINED_TAGS = {
@@ -78,6 +79,7 @@ PREDEFINED_TAGS = {
     ElementType.HEADLINE: HEADLINE_TAGS,
     ElementType.IMAGE: IMAGE_TAGS,
     ElementType.BUTTON: BUTTON_TAGS,
-    ElementType.LINK: LINK_TAGS + ['a']      # + ['a'] is to identify link tags when using custom XPath
+    ElementType.LINK: LINK_TAGS + ['a'],      # + ['a'] is to identify link tags when using custom XPath
+    ElementType.INPUT: INPUT_TAGS
 }
 
