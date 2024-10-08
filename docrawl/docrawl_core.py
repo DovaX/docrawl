@@ -1001,50 +1001,40 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
             spider_request = browser_meta_data['request']
             spider_function = browser_meta_data['function']
             proxy = browser_meta_data['browser']['proxy']
+            url = spider_request['url']
 
             try:
-                if spider_request['url'] and not spider_request['loaded']:
+                if url and not spider_request['loaded']:
                     if hasattr(self.browser, "proxy"):
                         if proxy != self.browser.proxy:
                             docrawl_logger.warning('Proxy was updated in meanwhile')
                             self._update_proxy(proxy)
 
-                    self.browser.get(spider_request['url'])
+                    self.browser.get(url)
                     self.page = Selector(text=self.browser.page_source)
                     
-                    # collect headers
-                    headers = [req.headers for req in self.browser.requests if req.response]
+                    # collect headers for current page
+                    headers = [req.headers for req in self.browser.requests if req.response and req.url == url]
                     headers_dict = {i + 1: dict(header) for i, header in enumerate(headers)}
                     self.docrawl_client.set_browser_headers(headers_dict)
                     
-                    # collect cookies
+                    # collect cookies for current page
                     cookies = [cookie for cookie in self.browser.get_cookies()]
                     cookies_dict = {i + 1: dict(cookie) for i, cookie in enumerate(cookies)}
                     self.docrawl_client.set_browser_cookies(cookies_dict)
                     
-                    # TODO: coolect at the same time mb?
-                    # requests_data = {
-                    #     i + 1: {
-                    #         'headers': dict(req.headers),
-                    #         'cookies': req.cookies
-                    #     } 
-                    #     for i, req in enumerate(requests) if req.response
-                    # }
-                    
-                    # collect requests (TODO: own class?)
-                    _requests = []
-                    for req in self.browser.requests:
-                        if req.response:
-                            _req = {
-                                'url': req.url,
-                                'status_code': req.response.status_code,
-                                # 'headers': req.response.headers, ->>>>> we do that earlier, totaly need a class or smth (same amount of headers, obv)
-                                # 'content': req.response.body,
-                            }
-                            _requests.append(_req)
-                    _requests_dict = {i + 1: dict(_req) for i, _req in enumerate(_requests)}
-                    print(_requests_dict)
-                    self.docrawl_client.set_browser_requests(_requests_dict)
+                    # collects requests, which contain: url, status code, headers from response, content from response 
+                    requests = []
+                    for _req in self.browser.requests[:1]:
+                        if _req.response:
+                            requests.append({
+                                'url': _req.url,
+                                'status_code': _req.response.status_code,
+                                'headers': dict(_req.response.headers),
+                                'content': str(_req.response.body),
+                            })
+                    requests_dict = {i + 1: dict(r) for i, r in enumerate(requests)}
+                    self.docrawl_client.set_browser_requests(requests_dict)
 
                     spider_request['loaded'] = True
                     browser_meta_data['request'] = spider_request
