@@ -36,6 +36,7 @@ try:
     from seleniumwire import webdriver
 except:
     docrawl_logger.error('Error while importing selenium-wire, using selenium instead')
+    docrawl_logger.error('TRY: pip install blinker==1.7.0')
     from selenium import webdriver
 
 import threading
@@ -1010,6 +1011,40 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
 
                     self.browser.get(spider_request['url'])
                     self.page = Selector(text=self.browser.page_source)
+                    
+                    # collect headers
+                    headers = [req.headers for req in self.browser.requests if req.response]
+                    headers_dict = {i + 1: dict(header) for i, header in enumerate(headers)}
+                    self.docrawl_client.set_browser_headers(headers_dict)
+                    
+                    # collect cookies
+                    cookies = [cookie for cookie in self.browser.get_cookies()]
+                    cookies_dict = {i + 1: dict(cookie) for i, cookie in enumerate(cookies)}
+                    self.docrawl_client.set_browser_cookies(cookies_dict)
+                    
+                    # TODO: coolect at the same time mb?
+                    # requests_data = {
+                    #     i + 1: {
+                    #         'headers': dict(req.headers),
+                    #         'cookies': req.cookies
+                    #     } 
+                    #     for i, req in enumerate(requests) if req.response
+                    # }
+                    
+                    # collect requests (TODO: own class?)
+                    _requests = []
+                    for req in self.browser.requests:
+                        if req.response:
+                            _req = {
+                                'url': req.url,
+                                'status_code': req.response.status_code,
+                                # 'headers': req.response.headers, ->>>>> we do that earlier, totaly need a class or smth (same amount of headers, obv)
+                                # 'content': req.response.body,
+                            }
+                            _requests.append(_req)
+                    _requests_dict = {i + 1: dict(_req) for i, _req in enumerate(_requests)}
+                    print(_requests_dict)
+                    self.docrawl_client.set_browser_requests(_requests_dict)
 
                     spider_request['loaded'] = True
                     browser_meta_data['request'] = spider_request
