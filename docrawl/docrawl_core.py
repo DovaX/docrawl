@@ -1014,18 +1014,16 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                     self.page = Selector(text=self.browser.page_source)
                     
                     # collect headers for current page
-                    headers = [req.headers for req in self.browser.requests if req.response and req.url == url]
-                    headers_dict = {i + 1: dict(header) for i, header in enumerate(headers)}
-                    self.docrawl_client.set_browser_headers(headers_dict)
+                    headers = next((dict(req.headers) for req in self.browser.requests if req.response and req.url == url), None)
+                    self.docrawl_client.set_browser_headers(headers)
                     
                     # collect cookies for current page
-                    cookies = [cookie for cookie in self.browser.get_cookies()]
-                    cookies_dict = {i + 1: dict(cookie) for i, cookie in enumerate(cookies)}
-                    self.docrawl_client.set_browser_cookies(cookies_dict)
+                    cookies = [dict(cookie) for cookie in self.browser.get_cookies()]
+                    self.docrawl_client.set_browser_cookies(cookies)
                     
                     # collects requests, which contain: url, status code, headers from response, content from response 
                     requests = []
-                    for _req in self.browser.requests[:1]:
+                    for _req in self.browser.requests[:1]: # TODO: remove limit
                         if _req.response:
                             requests.append({
                                 'url': _req.url,
@@ -1033,8 +1031,7 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                                 'headers': dict(_req.response.headers),
                                 'content': str(_req.response.body),
                             })
-                    requests_dict = {i + 1: dict(r) for i, r in enumerate(requests)}
-                    self.docrawl_client.set_browser_requests(requests_dict)
+                    self.docrawl_client.set_browser_requests(requests)
 
                     spider_request['loaded'] = True
                     browser_meta_data['request'] = spider_request

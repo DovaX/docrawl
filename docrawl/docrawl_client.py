@@ -36,9 +36,13 @@ class DocrawlClient:
         self._kv_redis_key_scanned_elements = self.kv_redis_keys.get('elements', f'{self.redis_key_prefix}:elements')
         self._kv_redis_key_screenshot = self.kv_redis_keys.get('screenshot', f'{self.redis_key_prefix}:screenshot')
         
-        self._kv_redis_key_browser_headers = self.kv_redis_keys.get('browser_headers', f'{self.redis_key_prefix}:browser_headers')
-        self._kv_redis_key_browser_cookies = self.kv_redis_keys.get('browser_cookies', f'{self.redis_key_prefix}:browser_cookies')
-        self._kv_redis_key_browser_requests = self.kv_redis_keys.get('browser_requests', f'{self.redis_key_prefix}:browser_requests')
+        # self._kv_redis_key_browser_headers = self.kv_redis_keys.get('browser_headers', f'{self.redis_key_prefix}:browser_headers')
+        # self._kv_redis_key_browser_cookies = self.kv_redis_keys.get('browser_cookies', f'{self.redis_key_prefix}:browser_cookies')
+        # self._kv_redis_key_browser_requests = self.kv_redis_keys.get('browser_requests', f'{self.redis_key_prefix}:browser_requests')
+
+        self.browser_headers = None
+        self.browser_cookies = None
+        self.browser_requests = None
 
         docrawl_logger.info(f'Initialised DocrawlClient with ID {self._client_id}')
 
@@ -52,22 +56,28 @@ class DocrawlClient:
         return self.kv_redis.get(key=self._kv_redis_key_browser_metadata)
     
     def set_browser_headers(self, headers: dict):
-        self.kv_redis.set(key=self._kv_redis_key_browser_headers, value=headers)
+        self.browser_headers = headers
+        # self.kv_redis.set(key=self._kv_redis_key_browser_headers, value=headers)
     
     def get_browser_headers(self):
-        return self.kv_redis.get(key=self._kv_redis_key_browser_headers)
+        return self.browser_headers
+        # return self.kv_redis.get(key=self._kv_redis_key_browser_headers)
     
     def set_browser_cookies(self, cookies: dict):
-        self.kv_redis.set(key=self._kv_redis_key_browser_cookies, value=cookies)
+        self.browser_cookies = cookies
+        # self.kv_redis.set(key=self._kv_redis_key_browser_cookies, value=cookies)
     
     def get_browser_cookies(self):
-        return self.kv_redis.get(key=self._kv_redis_key_browser_cookies)
+        return self.browser_cookies
+        # return self.kv_redis.get(key=self._kv_redis_key_browser_cookies)
     
-    def set_browser_requests(self, requests: dict):
-        self.kv_redis.set(key=self._kv_redis_key_browser_requests, value=requests)
+    def set_browser_requests(self, requests: list):
+        self.browser_requests = requests
+        # self.kv_redis.set(key=self._kv_redis_key_browser_requests, value=requests)
     
     def get_browser_requests(self):
-        return self.kv_redis.get(key=self._kv_redis_key_browser_requests)
+        return self.browser_requests
+        # return self.kv_redis.get(key=self._kv_redis_key_browser_requests)
 
     def set_browser_scanned_elements(self, elements: list):
         self.kv_redis.set(key=self._kv_redis_key_scanned_elements, value=elements)
