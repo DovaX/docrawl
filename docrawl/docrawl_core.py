@@ -1023,8 +1023,9 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                     
                     # collects requests, which contain: url, status code, headers from response, content from response 
                     requests = []
-                    for _req in self.browser.requests[:1]: # TODO: remove limit
-                        if _req.response:
+                    for _req in self.browser.requests:
+                        _type = _req.headers.get('content-type')
+                        if _req.response and _type and _type == 'application/json':
                             requests.append({
                                 'url': _req.url,
                                 'status_code': _req.response.status_code,
