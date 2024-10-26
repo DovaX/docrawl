@@ -30,6 +30,7 @@ from webdriver_manager.firefox import GeckoDriverManager
 from docrawl.errors import SpiderFunctionError
 from docrawl.docrawl_logger import docrawl_logger
 from docrawl.elements import PREDEFINED_TAGS, Element, ElementType, classify_element_by_xpath
+from docrawl.utils import build_abs_url
 
 # Due to the problems with selenium wire on linux systems
 try:
@@ -390,6 +391,7 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
         incl_links = inp['incl_links']
         incl_images = inp['incl_images']
         incl_buttons = inp['incl_buttons']
+        incl_inputs = inp.get('incl_input', True)
         by_xpath = inp['by_xpath']
         cookies_xpath = inp['cookies_xpath']  # dev param only
         context_xpath = inp['context_xpath']
@@ -448,7 +450,16 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
             return result
 
         def extract_element_data(element: WebElement, xpath: str, element_type: ElementType):
-            if element_type in [ElementType.LINK, ElementType.BUTTON]:
+            attributes = self.browser.execute_script(
+                'var items = {}; for (index = 0; index < arguments[0].attributes.length; ++index) { items[arguments[0].attributes[index].name] = arguments[0].attributes[index].value }; return items;',
+                element
+            )
+
+            if element_type == ElementType.LINK:
+                xpath_new = xpath + '//text()'
+                text = ''.join(self.page.xpath(xpath_new).extract()).strip()
+                attributes['href'] = build_abs_url(attributes['href'], self.browser.current_url)
+            elif element_type == ElementType.BUTTON:
                 xpath_new = xpath + '//text()'
                 text = ''.join(self.page.xpath(xpath_new).extract()).strip()
             elif element_type == ElementType.IMAGE:
@@ -535,6 +546,8 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                 #
                 #     with open(path + '.pickle', 'wb') as pickle_file:
                 #         pickle.dump(df, pickle_file)
+            elif element_type == ElementType.INPUT:
+                text = element.text
             else:
                 xpath += '//text()'
 
@@ -546,15 +559,10 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                     xpath = xpath.removesuffix('//text()')
                     text = ''.join(self.page.xpath(xpath).extract()).strip()
 
-            # attributes = element.get_property('attributes')
-            attributes = self.browser.execute_script(
-                'var items = {}; for (index = 0; index < arguments[0].attributes.length; ++index) { items[arguments[0].attributes[index].name] = arguments[0].attributes[index].value }; return items;',
-                element
-            )
-
             # docrawl_logger.warning(attributes)
             element_data = {
-                'tag_name': re.split('//|/', xpath)[-1].split('[')[0], 'text': text,
+                'tagName': element.tag_name,
+                'textContent': text,
                 'attributes': attributes
             }
 
@@ -588,6 +596,9 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
             if elements:
                 added_xpaths = []  # For deduplication of elements
                 for i, element in enumerate(elements):
+                    if not is_element_sized(element):
+                        continue
+
                     elem_name = f'{element_type}_{i}'
 
                     # Skip tables with no rows
@@ -601,12 +612,31 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                             element_data = extract_element_data(element=element, xpath=xpath, element_type=element_type)
                             element_c = Element(name=elem_name, type=element_type, rect=element.rect, xpath=xpath,
                                                 data=element_data)
+                            if is_element_empty(element_c):
+                                continue
                             new_elements_all.append(element_c.dict())
                             added_xpaths.append(xpath)
                         # serialize_and_append_data(f'{element_name}_{i}', element, xpath)
 
                     except Exception as e:
                         docrawl_logger.error(f'Error while extracting data for element {elem_name}: {e}')
+
+        def is_element_sized(element: WebElement) -> bool:
+            """Skip elements with no width or height."""
+            element_size = element.size
+            if element_size['width'] == 0 or element_size['height'] == 0:
+                return False
+            return True
+
+        def is_element_empty(element: Element) -> bool:
+            """Skip elements based on their type and 'emptiness' rules."""
+            if element.type in [ElementType.TEXT, ElementType.HEADLINE]:
+                # Skip text-based elements with no text or whitespaces only
+                return element.data['textContent'].strip() == ''
+            else:
+                # TODO: Add checks for other types of elements if necessary
+                pass
+            return False
 
         def find_element_xpath(tree, i):
             """
@@ -622,6 +652,11 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
             return xpath
 
         docrawl_logger.info("Find elements phase has started")
+
+        ##### INPUT SECTION #####
+        if incl_inputs:
+            find_elements(element_type=ElementType.INPUT)
+
         ##### TABLES SECTION #####
         if incl_tables:
             find_elements(element_type=ElementType.TABLE)
@@ -841,13 +876,12 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
             raise SpiderFunctionError(str(e)) from e
 
     def _prepare_xpath_for_extraction(self, xpath: str):
-        if not xpath.endswith('/text()') and not '@' in xpath.split('/')[-1]:
-            xpath += '/text()'
-
         # Extract link from "a" tags
         if xpath.split('/')[-1] == 'a' or xpath.split('/')[-1] == '/a' or xpath.split('/')[-1].startswith('a['):
             xpath += '/@href'
-            
+        elif not xpath.endswith('/text()') and not '@' in xpath.split('/')[-1]:
+            xpath += '/text()'
+
         return xpath
 
     def _extract_xpath(self, inp):
@@ -857,14 +891,18 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
         xpath = inp['xpath']
         filename = inp['filename']  # "extracted_data.txt"
 
+        tag = xpath.split('/')[-1]
         xpath = self._prepare_xpath_for_extraction(xpath)
+        if tag == 'a':
+            data = self.page.xpath(xpath).extract()
+            data = [build_abs_url(scraped_link, self.browser.current_url) for scraped_link in data]
+        else:
+            data = self.page.xpath(xpath).extract()
 
         try:
             write_in_file_mode = inp['write_in_file_mode']
         except:
             write_in_file_mode = "w+"
-
-        data = self.page.xpath(xpath).extract()
 
         if not data:
             data = ['None']
@@ -886,7 +924,12 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
 
         for xpath in xpaths:
             xpath = self._prepare_xpath_for_extraction(xpath)
-            data = self.page.xpath(xpath).extract()
+            tag = xpath.split('/')[-1]
+            if tag == 'a':
+                data = self.page.xpath(xpath).extract()
+                data = [build_abs_url(scraped_link, self.browser.current_url) for scraped_link in data]
+            else:
+                data = self.page.xpath(xpath).extract()
 
             if not data:
                 data = ['None']
