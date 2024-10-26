@@ -36,6 +36,7 @@ try:
     from seleniumwire import webdriver
 except:
     docrawl_logger.error('Error while importing selenium-wire, using selenium instead')
+    docrawl_logger.error('TRY: pip install blinker==1.7.0')
     from selenium import webdriver
 
 import threading
@@ -1000,16 +1001,38 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
             spider_request = browser_meta_data['request']
             spider_function = browser_meta_data['function']
             proxy = browser_meta_data['browser']['proxy']
+            url = spider_request['url']
 
             try:
-                if spider_request['url'] and not spider_request['loaded']:
+                if url and not spider_request['loaded']:
                     if hasattr(self.browser, "proxy"):
                         if proxy != self.browser.proxy:
                             docrawl_logger.warning('Proxy was updated in meanwhile')
                             self._update_proxy(proxy)
 
-                    self.browser.get(spider_request['url'])
+                    self.browser.get(url)
                     self.page = Selector(text=self.browser.page_source)
+                    
+                    # collect headers for current page
+                    headers = next((dict(req.headers) for req in self.browser.requests if req.response and req.url == url), None)
+                    self.docrawl_client.set_browser_headers(headers)
+                    
+                    # collect cookies for current page
+                    cookies = [dict(cookie) for cookie in self.browser.get_cookies()]
+                    self.docrawl_client.set_browser_cookies(cookies)
+                    
+                    # collects requests, which contain: url, status code, headers from response, content from response 
+                    requests = []
+                    for _req in self.browser.requests:
+                        _type = _req.headers.get('content-type')
+                        if _req.response and  _type == 'application/json':
+                            requests.append({
+                                'url': _req.url,
+                                'status_code': _req.response.status_code,
+                                'headers': dict(_req.response.headers),
+                                'content': str(_req.response.body),
+                            })
+                    self.docrawl_client.set_browser_requests(requests)
 
                     spider_request['loaded'] = True
                     browser_meta_data['request'] = spider_request
