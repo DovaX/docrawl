@@ -1058,13 +1058,11 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                     
                     # collect headers for current page
                     headers = next((dict(req.headers) for req in self.browser.requests if req.response and req.url == url), None)
-                    self.docrawl_client.set_browser_headers(headers)
                     
                     # collect cookies for current page
                     cookies = [dict(cookie) for cookie in self.browser.get_cookies()]
-                    self.docrawl_client.set_browser_cookies(cookies)
                     
-                    # collects requests, which contain: url, status code, headers from response, content from response 
+                    # collect requests, which contain: url, status code, headers from response, content from response 
                     requests = []
                     for _req in self.browser.requests:
                         _type = _req.headers.get('content-type')
@@ -1075,7 +1073,14 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                                 'headers': dict(_req.response.headers),
                                 'content': str(_req.response.body),
                             })
-                    self.docrawl_client.set_browser_requests(requests)
+                    
+                    # set collected page data
+                    page_data = {
+                        'headers': headers,
+                        'cookies': cookies,
+                        'requests': requests
+                    }
+                    self.docrawl_client.set_page_data(page_data)
 
                     spider_request['loaded'] = True
                     browser_meta_data['request'] = spider_request
