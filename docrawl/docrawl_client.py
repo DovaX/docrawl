@@ -1,6 +1,5 @@
 import itertools
 import time
-from contextlib import suppress
 from dataclasses import dataclass
 
 import psutil
@@ -8,8 +7,8 @@ from crochet import setup
 from scrapy.crawler import CrawlerRunner
 
 from docrawl.docrawl_core import DocrawlSpider
-from docrawl.docrawl_logger import docrawl_logger
 from docrawl.errors import PageDidNotLoadError, SpiderFunctionError
+from docrawl.utils import get_logger
 from keepvariable.keepvariable_core import KeepVariableDummyRedisServer
 
 
@@ -24,7 +23,7 @@ class DocrawlSettings:
 class DocrawlClient:
     id_iter = itertools.count()
 
-    def __init__(self, kv_redis=None, kv_redis_keys=None, number_of_spawn_browsers=0, redis_key_prefix=""):
+    def __init__(self, kv_redis=None, kv_redis_keys=None, number_of_spawn_browsers=0, redis_key_prefix="", keep_logs: bool = False):
         """Number of spawn browsers = how many browser processes are ready in standby mode to not initialize + close the browser, currently support 0 and 1."""
         self._client_id = redis_key_prefix.split(':')[1] or next(self.id_iter)
 
@@ -40,7 +39,12 @@ class DocrawlClient:
         self.browser_cookies = None
         self.browser_requests = None
 
-        docrawl_logger.info(f'Initialised DocrawlClient with ID {self._client_id}')
+        logger_suffix = self._client_id[:5]
+
+        log_filename = f'docrawl_client#{logger_suffix}.log' if keep_logs else None
+        self.logger = get_logger(f'DocrawlClient#{logger_suffix}', log_filename)
+
+        self.logger.info(f'Initialised DocrawlClient with ID {self._client_id}')
 
         if number_of_spawn_browsers > 0: #TODO: increase number of spawned browsers, support just 1 standby browser at this moment
             self.run_spider()
@@ -106,7 +110,7 @@ class DocrawlClient:
         try:
             is_page_loaded = self.get_browser_meta_data()['request']['loaded']
         except Exception as e:
-            docrawl_logger.error(f'Error while loading is_page_loaded: {e}')
+            self.logger.error(f'Error while loading is_page_loaded: {e}')
             is_page_loaded = True
 
         # First check if page is loaded
@@ -117,12 +121,12 @@ class DocrawlClient:
             except:
                 is_page_loaded = False
             time.sleep(0.5)
-            docrawl_logger.info('Page is still loading, waiting 0.5 sec ...')
+            self.logger.info('Page is still loading, waiting 0.5 sec ...')
 
         if is_page_loaded:
-            docrawl_logger.warning(f'Page loaded: {self.get_browser_meta_data()["request"]["url"]}')
+            self.logger.warning(f'Page loaded: {self.get_browser_meta_data()["request"]["url"]}')
         else:
-            docrawl_logger.error('Page was not loaded')
+            self.logger.error('Page was not loaded')
             raise PageDidNotLoadError()
 
     def _wait_until_function_is_done(self, timeout=60):
@@ -131,7 +135,7 @@ class DocrawlClient:
             spider_function = self.get_browser_meta_data()['function']
             is_function_done = spider_function['done']
         except Exception as e:
-            docrawl_logger.error(f'Error while loading is_function_done: {e}')
+            self.logger.error(f'Error while loading is_function_done: {e}')
             is_function_done = True
 
         # Then check if function is done
@@ -140,21 +144,21 @@ class DocrawlClient:
             spider_function = self.get_browser_meta_data()['function']
             is_function_done = spider_function['done']
             time.sleep(0.5)
-            docrawl_logger.info('Function is still running, waiting 0.5 sec ...')
+            self.logger.info('Function is still running, waiting 0.5 sec ...')
 
         if is_function_done:
             if spider_function["error"] is None:
-                docrawl_logger.success('Spider function finished successfully')
+                self.logger.info('Spider function finished successfully')
             else:
-                docrawl_logger.error(f'Spider function failed: {spider_function["error"]}')
+                self.logger.error(f'Spider function failed: {spider_function["error"]}')
                 raise SpiderFunctionError(spider_function['error'])
 
         else:
-            docrawl_logger.error('Function was not finished')
+            self.logger.error('Function was not finished')
             raise TimeoutError('Spider function timed out')
 
     def _execute_function(self, function, function_input=None, timeout=30):
-        # docrawl_logger.info(f'Running function {function} with input: {function_input}')
+        # self.logger.info(f'Running function {function} with input: {function_input}')
 
         if True:#self.is_browser_active(): #The browser seemed inactive but it was actually active
             browser_meta_data = self.get_browser_meta_data()
@@ -165,7 +169,7 @@ class DocrawlClient:
             # self._wait_until_page_is_loaded()
             self._wait_until_function_is_done(timeout)
         else:
-            docrawl_logger.warning('Browser instance is not active / crashed, function '+str(function)+' could not be executed')
+            self.logger.warning('Browser instance is not active / crashed, function '+str(function)+' could not be executed')
 
     def acquire_browser(self, driver, in_browser=False, proxy=None):
         # Need to update browser metadata mainly for proxy
@@ -173,7 +177,7 @@ class DocrawlClient:
 
         self.active_browser = "browser1"
 
-        docrawl_logger.warning(f"Acquired browser {self.active_browser}")
+        self.logger.warning(f"Acquired browser {self.active_browser}")
 
     def release_browser(self):
         self.active_browser = None
@@ -298,7 +302,7 @@ class DocrawlClient:
         # with suppress(Exception):
         #     psutil.Process(pid).terminate()
 
-        # docrawl_logger.warning(f'Is browser closed: {self.is_browser_active()}')
+        # self.logger.warning(f'Is browser closed: {self.is_browser_active()}')
 
     def scroll_web_page(self, scroll_to, scroll_by, scroll_max, timeout=20):
         """

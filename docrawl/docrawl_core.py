@@ -11,7 +11,6 @@ import requests
 import scrapy
 from scrapy.selector import Selector
 from selenium.common.exceptions import (
-    ElementClickInterceptedException,
     NoSuchElementException,
     WebDriverException,
 )
@@ -28,19 +27,19 @@ from webdriver_manager.chrome import ChromeDriverManager
 from webdriver_manager.firefox import GeckoDriverManager
 
 from docrawl.errors import SpiderFunctionError
-from docrawl.docrawl_logger import docrawl_logger
 from docrawl.elements import PREDEFINED_TAGS, Element, ElementType, classify_element_by_xpath
-from docrawl.utils import build_abs_url
+from docrawl.utils import build_abs_url, get_logger
 
 # Due to the problems with selenium wire on linux systems
 try:
     from seleniumwire import webdriver
 except:
-    docrawl_logger.error('Error while importing selenium-wire, using selenium instead')
-    docrawl_logger.error('TRY: pip install blinker==1.7.0')
+    print('Error while importing selenium-wire, using selenium instead')
+    print('TRY: pip install blinker==1.7.0')
     from selenium import webdriver
 
 import threading
+
 
 class ScreenshotThread(threading.Thread):
     def __init__(self, docrawl_spider, screenshot_filename, interval=0.5):
@@ -64,9 +63,9 @@ class ScreenshotThread(threading.Thread):
             'filename': str(self.screenshot_filename)  # Cast to str, e.g. when Path object is passed
         }
         self.docrawl_spider._take_png_screenshot(inp)
-        
+
         #screenshot = self.docrawl_spider.browser.get_full_page_screenshot_as_file(screenshot_name)
-        docrawl_logger.info(f"Screenshot thread: Screenshot taken - {self.screenshot_filename}")
+        self.docrawl_spider.logger.info(f"Screenshot thread: Screenshot taken - {self.screenshot_filename}")
 
     def stop(self):
         self.stop_event.set()
@@ -92,8 +91,11 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
         )
         self.kv_redis_key_elements = self.docrawl_client.kv_redis_keys.get('elements', 'elements')
 
-        self.browser = self._initialise_browser()
+        # "logger" property already exists in parent class, so using "_logger"
+        self._logger = get_logger(f'DocrawlCore#{self.docrawl_client._client_id[:5]}')
 
+        self.browser = self._initialise_browser()
+        
         self.screenshot_thread = None  # needs to be initialized to None before execution
         self.start_requests()
 
@@ -118,7 +120,7 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                 service = Service(GeckoDriverManager().install())
             except Exception as e:
                 service = None
-                docrawl_logger.warning(
+                self._logger.warning(
                     "GeckoDriverManager update was not successful - launching latest Firefox version instead"
                     + str(e)
                 )
@@ -128,7 +130,7 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                     options=self.options, service=service, seleniumwire_options=sw_options
                 )
             except Exception as e:
-                docrawl_logger.error(f'Error while creating Firefox instance {e}')
+                self._logger.error(f'Error while creating Firefox instance {e}')
                 self.browser = webdriver.Firefox(options=self.options)
 
         elif self.driver_type == 'Chrome':
@@ -148,7 +150,7 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                     seleniumwire_options=sw_options
                 )
             except Exception as e:
-                docrawl_logger.error(f'Error while creating Chrome instance {e}')
+                self._logger.error(f'Error while creating Chrome instance {e}')
                 self.browser = webdriver.Chrome(options=self.options)
 
         window_size_x = 1820
@@ -158,7 +160,7 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
         if browser_meta_data.get('request'):
             browser_meta_data['request']['loaded'] = False
         self.docrawl_client.set_browser_meta_data(browser_meta_data)
-        docrawl_logger.info(f'Browser settings: {browser_meta_data}')
+        self._logger.info(f'Browser settings: {browser_meta_data}')
 
         return self.browser
 
@@ -171,9 +173,9 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
         try:
             self.browser.quit()
         except ConnectionRefusedError as e:
-            docrawl_logger.error(f'Error while closing the browser: {e}')
+            self._logger.error(f'Error while closing the browser: {e}')
         except Exception as e:
-            docrawl_logger.error(f'Error while closing the browser: {e}')
+            self._logger.error(f'Error while closing the browser: {e}')
 
         # # Remove proxy after closing browser instance
         # proxy = {'ip': '', 'port': '', 'username': '', 'password': ''}
@@ -187,10 +189,10 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
         if self.is_browser_active():
             self._close_browser(inp)
         else:
-            docrawl_logger.error("Browser crashed")
+            self._logger.error("Browser crashed")
 
         self.browser = self._initialise_browser()
-        docrawl_logger.warning("Browser restarted")
+        self._logger.warning("Browser restarted")
 
     def __del__(self):
         self.browser.quit()
@@ -232,7 +234,7 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
             proxy = self._prepare_proxy_string(proxy_info)
 
             self.browser.proxy = {"http": proxy, "https": proxy, "verify_ssl": False}
-            docrawl_logger.warning("Proxy updated")
+            self._logger.warning("Proxy updated")
 
     def _set_proxy(self, proxy_info: dict) -> dict:
         """
@@ -280,7 +282,7 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
     # # # # # # # SCRAPING FUNCTIONS # # # # # # #
 
     def _init_function(self, inp):
-        docrawl_logger.warning("_init_function is being executed")
+        self._logger.warning("_init_function is being executed")
 
     def _click_class(self, inp):
         class_input = inp.get("filename")
@@ -357,10 +359,10 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                 try:
                     self.browser.execute_script("return arguments[0].scrollIntoView(true);", root_element)
                 except Exception as e:
-                    docrawl_logger.warning("Warning: Website wasn't scrolled while taking screenshot: "+str(e))
-                docrawl_logger.info(f'Png screenshot created')
+                    self._logger.warning("Warning: Website wasn't scrolled while taking screenshot: "+str(e))
+                self._logger.info(f'Png screenshot created')
             except Exception as e:
-                docrawl_logger.error(f'Error while taking page png screenshot: {e}')
+                self._logger.error(f'Error while taking page png screenshot: {e}')
 
     def _extract_page_source(self, inp):
         """
@@ -382,7 +384,7 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
             :param browser: webdriver, browser instance
         """
 
-        docrawl_logger.warning("Scan web page has started")
+        self._logger.warning("Scan web page has started")
 
         incl_tables = inp['incl_tables']
         incl_bullets = inp['incl_bullets']
@@ -562,7 +564,7 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                 if not text.strip():
                     text = element.text
 
-            # docrawl_logger.warning(attributes)
+            # self._logger.warning(attributes)
             element_data = {
                 'tagName': element.tag_name,
                 'textContent': text,
@@ -620,7 +622,7 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                         added_xpaths.append(xpath)
 
                     except Exception as e:
-                        docrawl_logger.error(f'Error while extracting data for element {elem_name}: {e}')
+                        self._logger.error(f'Error while extracting data for element {elem_name}: {e}')
 
         def is_element_sized(element: WebElement) -> bool:
             """Skip elements with no width or height."""
@@ -652,7 +654,7 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
 
             return xpath
 
-        docrawl_logger.info("Find elements phase has started")
+        self._logger.info("Find elements phase has started")
 
         ##### INPUT SECTION #####
         if incl_inputs:
@@ -707,7 +709,7 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
             try:
                 find_elements(element_type=ElementType.CONTEXT, custom_tags=[context_xpath])
             except Exception as e:
-                docrawl_logger.error(f'Error while retrieving context elements: {e}')
+                self._logger.error(f'Error while retrieving context elements: {e}')
 
         if cookies_xpath:
             find_elements(element_type=ElementType.COOKIES, custom_tags=[cookies_xpath])
@@ -715,7 +717,7 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
         ##### SAVING COORDINATES OF ELEMENTS #####
 
         self.docrawl_client.set_browser_scanned_elements(new_elements_all)
-        docrawl_logger.info(
+        self._logger.info(
             f'Scan Web Page function duration {timedelta_format(datetime.datetime.now(), time_start_f)}')
 
     def _wait_until_element_is_located(self, inp):
@@ -732,7 +734,7 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
         try:
             WebDriverWait(self.browser, 5).until(EC.element_to_be_clickable((By.XPATH, xpath))).click()
         except Exception as e:
-            docrawl_logger.error(f'Error while locating element: {e}')
+            self._logger.error(f'Error while locating element: {e}')
 
     def _get_current_url(self, inp):
         """
@@ -840,20 +842,20 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
         xpath = inp['xpath']
 
         xpath = xpath.removesuffix('//text()').rstrip('/')
-        docrawl_logger.info(f'Searching for element to click: {xpath}')
+        self._logger.info(f'Searching for element to click: {xpath}')
 
         try:
             element = self.browser.find_element(By.XPATH, xpath)
 
             if element.is_enabled():
-                docrawl_logger.info('Button is enabled')
+                self._logger.info('Button is enabled')
                 element.click()
             else:
-                docrawl_logger.warning('Button is not enabled, trying to enable it')
+                self._logger.warning('Button is not enabled, trying to enable it')
                 self.browser.execute_script("arguments[0].removeAttribute('disabled','disabled')", element)
                 element.click()
         except NoSuchElementException:
-            docrawl_logger.error('Element not found')
+            self._logger.error('Element not found')
 
     def _click_name(self, inp):
         text = inp['text']
@@ -935,7 +937,7 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
             if not data:
                 data = ['None']
 
-            docrawl_logger.info(f'Data from extracted XPath: {data}')
+            self._logger.info(f'Data from extracted XPath: {data}')
             result.append(data)
 
         short_filename = filename.split(".txt")[0]
@@ -1018,16 +1020,16 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
             self.screenshot_thread = ScreenshotThread(docrawl_spider = self, screenshot_filename = screenshot_filename)
             self.screenshot_thread.start()
             self.screenshot_time=0
-            docrawl_logger.info("Screenshot thread created with screenshot_filename: "+str(screenshot_filename))
+            self._logger.info("Screenshot thread created with screenshot_filename: "+str(screenshot_filename))
         else:
             self.screenshot_thread.screenshot_filename = screenshot_filename #make sure the filename is correct if there is second attempt to initialize screenshot thread with different instructions (can happen e.g. load website and then take_screenshot immediately after that)
-            docrawl_logger.info("Screenshot screenshot_filename was updated: "+str(screenshot_filename))
+            self._logger.info("Screenshot screenshot_filename was updated: "+str(screenshot_filename))
             
     def increment_time_of_screenshot_thread(self,screenshot_refreshing_timespan = 5):
         """ screenshot refreshing timespan is in seconds"""
         
         if self.screenshot_thread is not None:
-            docrawl_logger.info("Screenshot thread update"+str(self.screenshot_time))
+            self._logger.info("Screenshot thread update"+str(self.screenshot_time))
             
             self.screenshot_time+=1
             if self.screenshot_time > screenshot_refreshing_timespan:
@@ -1051,7 +1053,7 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                 if url and not spider_request['loaded']:
                     if hasattr(self.browser, "proxy"):
                         if proxy != self.browser.proxy:
-                            docrawl_logger.warning('Proxy was updated in meanwhile')
+                            self._logger.warning('Proxy was updated in meanwhile')
                             self._update_proxy(proxy)
 
                     self.browser.get(url)
@@ -1092,17 +1094,17 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                             current_position = self.browser.execute_script("return window.pageYOffset;")
 
                             if current_position == last_position:
-                                docrawl_logger.warning("Reached the bottom of the page.")
+                                self._logger.warning("Reached the bottom of the page.")
                                 break
 
                             last_position = current_position
 
                             # Break if scrolling takes too long
                             if time.time() - start_time > timeout:
-                                docrawl_logger.warning("Timeout reached while scrolling.")
+                                self._logger.warning("Timeout reached while scrolling.")
                                 break
 
-                    docrawl_logger.success('Initial page load completed, proceeding to scrolling for full render.')
+                    self._logger.info('Initial page load completed, proceeding to scrolling for full render.')
 
                     # Scroll to bottom to ensure rendering is complete
                     _scroll_incrementally(pixels=700, pause_time=0.5, timeout=60)
@@ -1118,7 +1120,7 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                         # skip standard execution and run in a different thread
                         self.initialize_screenshot_thread_if_not_existing(inp["filename"])
                     else:  # Standard behaviour
-                        docrawl_logger.warning("Running docrawl function:" + f'_{function_str}')
+                        self._logger.warning("Running docrawl function:" + f'_{function_str}')
                         getattr(self, f'_{function_str}')(inp=inp)
 
                     spider_function['done'] = True
@@ -1129,13 +1131,13 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                 time.sleep(1) #keep time increment in all cases, otherwise screenshots do not load correctly if the website renders dynamic elements (e.g. forloop blog)
 
             except (WebDriverException, MaxRetryError) as e:
-                docrawl_logger.error('Browser not responding')
-                docrawl_logger.error(traceback.format_exc())
+                self._logger.error('Browser not responding')
+                self._logger.error(traceback.format_exc())
                 self._restart_browser()
 
             except Exception as e:
-                docrawl_logger.error(f'Error while executing docrawl loop: {e}')
-                docrawl_logger.error(traceback.format_exc())
+                self._logger.error(f'Error while executing docrawl loop: {e}')
+                self._logger.error(traceback.format_exc())
 
                 browser_meta_data = self.docrawl_client.get_browser_meta_data()
                 spider_function['done'] = True
