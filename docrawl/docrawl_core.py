@@ -1077,6 +1077,34 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                             })
                     self.docrawl_client.set_browser_requests(requests)
 
+                    def _scroll_incrementally(pixels=300, pause_time=0.5, timeout=30):
+                        start_time = time.time()
+                        last_position = self.browser.execute_script("return window.pageYOffset;")
+
+                        while True:
+                            # Scroll down by the specified number of pixels
+                            self.browser.execute_script(f"window.scrollBy(0, {pixels});")
+
+                            time.sleep(pause_time)
+
+                            # Get the current position after scrolling
+                            current_position = self.browser.execute_script("return window.pageYOffset;")
+
+                            if current_position == last_position:
+                                docrawl_logger.warning("Reached the bottom of the page.")
+                                break
+
+                            last_position = current_position
+
+                            # Break if scrolling takes too long
+                            if time.time() - start_time > timeout:
+                                docrawl_logger.warning("Timeout reached while scrolling.")
+                                break
+
+                    docrawl_logger.success('Initial page load completed, proceeding to scrolling for full render.')
+
+                    # Scroll to bottom to ensure rendering is complete
+                    _scroll_incrementally(pixels=700, pause_time=0.5, timeout=60)
                     spider_request['loaded'] = True
                     browser_meta_data['request'] = spider_request
                     self.docrawl_client.set_browser_meta_data(browser_meta_data)
