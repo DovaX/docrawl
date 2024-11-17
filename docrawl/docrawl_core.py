@@ -559,6 +559,9 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                     xpath = xpath.removesuffix('//text()')
                     text = ''.join(self.page.xpath(xpath).extract()).strip()
 
+                if not text.strip():
+                    text = element.text
+
             # docrawl_logger.warning(attributes)
             element_data = {
                 'tagName': element.tag_name,
@@ -608,15 +611,13 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                     try:
                         xpath = find_element_xpath(elements_tree, i)
 
-                        if xpath not in added_xpaths:
-                            element_data = extract_element_data(element=element, xpath=xpath, element_type=element_type)
-                            element_c = Element(name=elem_name, type=element_type, rect=element.rect, xpath=xpath,
-                                                data=element_data)
-                            if is_element_empty(element_c):
-                                continue
-                            new_elements_all.append(element_c.dict())
-                            added_xpaths.append(xpath)
-                        # serialize_and_append_data(f'{element_name}_{i}', element, xpath)
+                        element_data = extract_element_data(element=element, xpath=xpath, element_type=element_type)
+                        element_c = Element(name=elem_name, type=element_type, rect=element.rect, xpath=xpath,
+                                            data=element_data)
+                        if is_element_empty(element_c):
+                            continue
+                        new_elements_all.append(element_c.dict())
+                        added_xpaths.append(xpath)
 
                     except Exception as e:
                         docrawl_logger.error(f'Error while extracting data for element {elem_name}: {e}')
