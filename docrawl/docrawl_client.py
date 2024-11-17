@@ -196,7 +196,7 @@ class DocrawlClient:
             self._initialize_browser_metadata(driver=driver, headless=not in_browser, proxy=proxy)
         self._execute_function('restart_browser', None, timeout=120)
 
-    def load_website(self, url, timeout=20):
+    def load_website(self, url, timeout=120):
         if "http" not in url:
             url = "http://" + url
 
