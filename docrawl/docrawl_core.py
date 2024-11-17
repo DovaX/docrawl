@@ -458,7 +458,7 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
             if element_type == ElementType.LINK:
                 xpath_new = xpath + '//text()'
                 text = ''.join(self.page.xpath(xpath_new).extract()).strip()
-                attributes['href'] = build_abs_url(attributes['href'], self.browser.current_url)
+                attributes['href'] = build_abs_url(e, self.browser.current_url) if (e := attributes.get('href')) is not None else None
             elif element_type == ElementType.BUTTON:
                 xpath_new = xpath + '//text()'
                 text = ''.join(self.page.xpath(xpath_new).extract()).strip()
@@ -596,7 +596,7 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
             if elements:
                 added_xpaths = []  # For deduplication of elements
                 for i, element in enumerate(elements):
-                    if not is_element_sized(element):
+                    if not is_element_sized(element) or i > len(elements_tree)-1:
                         continue
 
                     elem_name = f'{element_type}_{i}'
