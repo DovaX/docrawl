@@ -1,8 +1,10 @@
 import datetime
 import os
-import re
 import time
 import traceback
+from concurrent.futures import ThreadPoolExecutor
+from dataclasses import asdict
+from typing import Type
 
 import lxml.html
 import pandas as pd
@@ -14,20 +16,20 @@ from selenium.common.exceptions import (
     NoSuchElementException,
     WebDriverException,
 )
-
 from selenium.webdriver import ChromeOptions, FirefoxOptions, ActionChains
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.proxy import Proxy, ProxyType
 from selenium.webdriver.firefox.service import Service
-from selenium.webdriver.remote.webdriver import WebElement
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 from urllib3.exceptions import MaxRetryError
 from webdriver_manager.chrome import ChromeDriverManager
 from webdriver_manager.firefox import GeckoDriverManager
 
+from docrawl.elements import classify_element_by_xpath, TableElement, \
+    InputElement, BulletListElement, ImageElement, LinkElement, ButtonElement, HeadlineElement, TextElement, \
+    ContextElement, CookiesElement, AbstractElement
 from docrawl.errors import SpiderFunctionError
-from docrawl.elements import PREDEFINED_TAGS, Element, ElementType, classify_element_by_xpath
 from docrawl.utils import build_abs_url, get_logger
 
 # Due to the problems with selenium wire on linux systems
@@ -376,12 +378,70 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
         with open(filename, 'w+', encoding="utf-8") as f:
             f.write(self.browser.page_source)
 
+    def _process_element(self, i, selenium_element, lxml_element, elem_type: Type[AbstractElement]):
+        try:
+            xpath = lxml_element.getroottree().getpath(lxml_element)
+            # xpath = xpath.split('/')
+            # xpath[2] = 'body'  # For some reason getpath() generates <div> instead of <body>
+            # xpath = '/'.join(xpath)
+
+            element_html = selenium_element.get_attribute('innerHTML')
+
+            if not element_html:
+                return None
+
+            instance = elem_type(element_html, xpath)
+
+            # Filter out invalid elements
+            if not instance.is_sized() or instance.is_empty():
+                return None
+
+            return {
+                "name": f"{elem_type.ELEMENT_TYPE}_{i}",
+                "type": elem_type.ELEMENT_TYPE,
+                "rect": selenium_element.rect,
+                "xpath": xpath,
+                "data": asdict(instance.element_data),
+            }
+
+        except Exception as e:
+            self._logger.error(f"Error processing element: {e}")
+            return None
+
+    def _process_elements_in_parallel(self, selenium_elements, lxml_elements, elem_type):
+        with ThreadPoolExecutor() as executor:
+            results = executor.map(
+                lambda args: self._process_element(args[0], *args[1], elem_type),
+                enumerate(zip(selenium_elements, lxml_elements))
+            )
+
+        return [result for result in results if result is not None]
+
+    def _search_elements(self, tree, elem_type, custom_tags=None):
+        tags = custom_tags or elem_type.PREDEFINED_TAGS
+
+        prefix = '' if custom_tags is not None else '//'
+
+        joined_tags = ' | '.join([f'{prefix}{tag}' for tag in tags])
+
+        selenium_elements = self.browser.find_elements(By.XPATH, joined_tags)
+
+        if custom_tags:
+            # Due to "special" behaviour of lxml lib
+            joined_tags = joined_tags.replace('/html/body', '/html/div')
+            self._logger.warning(f"BEFORE SEARCH XPATH REPLACED: {joined_tags}")
+
+        lxml_elements = tree.xpath(joined_tags)
+
+        if len(selenium_elements) != len(lxml_elements):
+            self._logger.warning(f'Number of Selenium elements ({len(selenium_elements)}) do not match number of lxml elements ({len(lxml_elements)})')
+
+        return selenium_elements, lxml_elements
+
     def _scan_web_page(self, inp):
         """
         Finds different elements (tables, bullet lists) on page.
-            :param page: Selenium Selector, page to search elements in
             :param inp: list, inputs from launcher (incl_tables, incl_bullets, output_dir)
-            :param browser: webdriver, browser instance
         """
 
         self._logger.warning("Scan web page has started")
@@ -404,16 +464,6 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
         # First remove old data
         self.docrawl_client.set_browser_scanned_elements(elements=[])
 
-        # Dictionary with elements (XPaths, data)
-        final_elements = {}
-
-        # Page source for parser
-        innerHTML = self.browser.execute_script("return document.body.innerHTML")
-        tree = lxml.html.fromstring(innerHTML)
-
-        # Url pattern, used to get main page url from current url
-        url_pattern = re.compile('^(((https|http):\/\/|www\.)*[a-zA-Z0-9\.\/\?\:@\-_=#]{2,100}\.[a-zA-Z]{2,6}\/)')
-
         time_start_f = datetime.datetime.now()
 
         def timedelta_format(end, start):
@@ -423,274 +473,25 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
 
             return f'{sec}:{microsec}'
 
-        def string_cleaner(string):
-            """
-            Removes whitespaces from string.
-                :param string: string, string to clean
-                :return - cleaned string
-            """
-
-            return ''.join(string.strip()).replace('\\', '')
-
-        def process_bullet(xpath):
-            """
-            Processes (cleans) bullet element, e.g. one <li> element per line
-                :param xpath: XPath of element
-            """
-
-            tag_2 = self.page.xpath(xpath)[0]
-            result = []
-            li_tags = tag_2.xpath('.//li')
-
-            # <li> inside <ol> don't contain numbers, but they could be added here
-            for li_tag in li_tags:
-                data = li_tag.xpath('.//text()').getall()
-                data = [string_cleaner(x) for x in data]  # Cleaning the text
-                data = list(filter(None, data))
-                element = ' '.join(data).replace(u'\xa0', u' ')
-
-                result.append(element + '\n')
-
-            return result
-
-        def extract_element_data(element: WebElement, xpath: str, element_type: ElementType):
-            attributes = self.browser.execute_script(
-                'var items = {}; for (index = 0; index < arguments[0].attributes.length; ++index) { items[arguments[0].attributes[index].name] = arguments[0].attributes[index].value }; return items;',
-                element
-            )
-
-            if element_type == ElementType.LINK:
-                xpath_new = xpath + '//text()'
-                text = ''.join(self.page.xpath(xpath_new).extract()).strip()
-                attributes['href'] = build_abs_url(e, self.browser.current_url) if (e := attributes.get('href')) is not None else None
-            elif element_type == ElementType.BUTTON:
-                xpath_new = xpath + '//text()'
-                text = ''.join(self.page.xpath(xpath_new).extract()).strip()
-            elif element_type == ElementType.IMAGE:
-                xpath_new = xpath + '//text()'
-                text = self.page.xpath(xpath_new).extract()
-
-                # if data:
-                #     # Handle images with relative path. E.g. images/logo.png
-                #     if not any([data.startswith(x) for x in ['http', 'www']]):
-                #         data = url_pattern.match(browser.current_url).group(1) + data.replace('./', '')
-                #
-                #     with open(path + '.pickle', 'wb') as pickle_file:
-                #         pickle.dump(data, pickle_file)
-            elif element_type == ElementType.BULLET:
-                text = process_bullet(xpath)
-                # xpath_new = xpath + '//li//text()'
-            elif element_type == ElementType.TABLE:
-                table_2 = self.page.xpath(xpath)[0]
-
-                result = []  # data
-                titles = []  # columns' names
-                tr_tags = table_2.xpath('.//tr')  # <tr> = table row
-                th_tags = table_2.xpath('.//th')  # <th> = table header (non-essential, so if any)
-
-                for th_tag in th_tags:
-                    titles.append(''.join(th_tag.xpath('.//text()').extract()).replace('\n', '').replace('\t', ''))
-
-                for tr_tag in tr_tags:
-                    td_tags = tr_tag.xpath('.//td')  # <td> = table data
-
-                    row = []
-                    '''
-                        # Sometimes between td tags there more than 1 tag with text, so that would
-                        # be proceeded as separate values despite of fact it should be in one cell.
-                        # That's why the further loop is needed. The result of it is a list of strings,
-                        # that should be in one cell later in dataframe.
-
-                        # Example: 
-
-                        <td>
-                            <a>Text 1</a>
-                            <a>Text 2</a>
-                        </td>
-
-                        # Without loop it would be two strings ("Text 1", "Text 2") and thus they 
-                        # will be in 2 differrent columns. With loop the result would be ["Text 1", "Text 2"] 
-                        # and after join method - "Text 1 Text 2" in just one cell (column).
-                   '''
-
-                    for td_tag in td_tags:
-                        data = td_tag.xpath('.//text()').getall()
-                        '''
-                            Some table cells include \n or unicode symbols,
-                            so that creates unneccesary "empty" columns and thus
-                            the number of columns doesn't meet the real one
-                        '''
-
-                        data = [string_cleaner(x) for x in data]  # Cleaning the text
-
-                        # data = list(filter(None, data))  # Deleting empty strings
-
-                        row.append('\n'.join(data))  # Making one string value from list
-
-                    result.append(row)
-
-                    if not titles:  # If table doesn't have <th> tags -> use first row as titles
-                        titles = row  # TODO: IF USER SELECTS THE TABLE, ASK HIM, WHETHER HE WANTS TO HAVE 1 ROW AS TITLES
-
-                try:
-                    # If number of columns' names (titles) is the same as number of columns
-                    df = pd.DataFrame(result, columns=titles)
-                except Exception:
-                    df = pd.DataFrame(result)
-
-                df = df.iloc[1:, :]  # Removing empty row at the beginning of dataframe
-
-                df.dropna(axis=0, how='all', inplace=True)
-
-                text = df.to_json()
-
-                # # If dataframe is not empty
-                # if not df.dropna().empty and len(df.columns) > 1 and len(df) > 1:
-                #     # Serialize DataFrame
-                #
-                #     with open(path + '.pickle', 'wb') as pickle_file:
-                #         pickle.dump(df, pickle_file)
-            elif element_type == ElementType.INPUT:
-                text = element.text
-            else:
-                xpath += '//text()'
-
-                # Try to extract text from element
-                try:
-                    text = ''.join(self.page.xpath(xpath).extract()).strip()
-                # Extract element otherwise
-                except:
-                    xpath = xpath.removesuffix('//text()')
-                    text = ''.join(self.page.xpath(xpath).extract()).strip()
-
-                if not text.strip():
-                    text = element.text
-
-            # self._logger.warning(attributes)
-            element_data = {
-                'tagName': element.tag_name,
-                'textContent': text,
-                'attributes': attributes
-            }
-
-            return element_data
-
-        global new_elements_all
-        new_elements_all = []
-
-        def find_elements(element_type: ElementType, custom_tags: list = None):
-            """
-            Finds elements on page using Selenium Selector and HTML Parser
-                :param element_type: type of element (table, bullet, text, headline, link, ...)
-                :param custom_tags: list of custom tags
-            """
-
-            global new_elements_all
-
-            tags = PREDEFINED_TAGS[element_type] if not custom_tags else custom_tags
-            elements = []
-            elements_tree = []
-
-            # If tag is not predefined -> there is no need to add prefix
-            prefix = '' if custom_tags else '//'
-
-            for tag in tags:
-                elements.extend(self.browser.find_elements(By.XPATH, f'{prefix}{tag}'))
-                if custom_tags:
-                    tag = tag.replace('/body/', '/div/')  # Otherwise, elements_tree will be empty
-                elements_tree.extend(tree.xpath(f'{prefix}{tag}'))
-
-            if elements:
-                added_xpaths = []  # For deduplication of elements
-                for i, element in enumerate(elements):
-                    if not is_element_sized(element) or i > len(elements_tree)-1:
-                        continue
-
-                    elem_name = f'{element_type}_{i}'
-
-                    # Skip tables with no rows
-                    if element_type == ElementType.TABLE and len(element.find_elements(By.XPATH, './/tr')) < 2:
-                        continue
-
-                    try:
-                        xpath = find_element_xpath(elements_tree, i)
-
-                        element_data = extract_element_data(element=element, xpath=xpath, element_type=element_type)
-                        element_c = Element(name=elem_name, type=element_type, rect=element.rect, xpath=xpath,
-                                            data=element_data)
-                        if is_element_empty(element_c):
-                            continue
-                        new_elements_all.append(element_c.dict())
-                        added_xpaths.append(xpath)
-
-                    except Exception as e:
-                        self._logger.error(f'Error while extracting data for element {elem_name}: {e}')
-
-        def is_element_sized(element: WebElement) -> bool:
-            """Skip elements with no width or height."""
-            element_size = element.size
-            if element_size['width'] == 0 or element_size['height'] == 0:
-                return False
-            return True
-
-        def is_element_empty(element: Element) -> bool:
-            """Skip elements based on their type and 'emptiness' rules."""
-            if element.type in [ElementType.TEXT, ElementType.HEADLINE]:
-                # Skip text-based elements with no text or whitespaces only
-                return element.data['textContent'].strip() == ''
-            else:
-                # TODO: Add checks for other types of elements if necessary
-                pass
-            return False
-
-        def find_element_xpath(tree, i):
-            """
-            Finds the XPath of element using HTML parser.
-                :param tree: list of elements
-                :param i: element's number
-            """
-            xpath = tree[i].getroottree().getpath(tree[i])
-            xpath = xpath.split('/')
-            xpath[2] = 'body'  # For some reason getpath() generates <div> instead of <body>
-            xpath = '/'.join(xpath)
-
-            return xpath
-
         self._logger.info("Find elements phase has started")
 
-        ##### INPUT SECTION #####
-        if incl_inputs:
-            find_elements(element_type=ElementType.INPUT)
+        html_content = self.browser.execute_script("return document.body.innerHTML")
+        tree = lxml.html.fromstring(html_content)
 
-        ##### TABLES SECTION #####
-        if incl_tables:
-            find_elements(element_type=ElementType.TABLE)
+        elements_all = []
+        for elem_type, include in config.items():
+            if include:
+                if isinstance(elem_type, CookiesElement):
+                    custom_tags = inp['cookies_xpath']
+                elif isinstance(elem_type, ContextElement):
+                    custom_tags = inp['context_xpath']
+                else:
+                    custom_tags = None
 
-        ##### BULLET SECTION #####
-        if incl_bullets:
-            find_elements(element_type=ElementType.BULLET)
+                selenium_elements, lxml_elements = self._search_elements(tree, elem_type, custom_tags)
 
-        ##### TEXTS SECTION #####
-        if incl_texts:
-            find_elements(element_type=ElementType.TEXT)
+                elements_all.extend(self._process_elements_in_parallel(selenium_elements, lxml_elements, elem_type))
 
-        ##### HEADLINES SECTION #####
-        if incl_headlines:
-            find_elements(element_type=ElementType.HEADLINE)
-
-        ##### LINKS SECTION #####
-        if incl_links:
-            find_elements(element_type=ElementType.LINK)
-
-        ##### IMAGES SECTION #####
-        if incl_images:
-            find_elements(element_type=ElementType.IMAGE)
-
-        ##### BUTTONS SECTION #####
-        if incl_buttons:
-            find_elements(element_type=ElementType.BUTTON)
-
-        ##### CUSTOM XPATH SECTION #####
         if by_xpath:
             # Temporary workaround due to weird behaviour of lists in kpv
             if ';' in by_xpath:
@@ -700,27 +501,18 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
 
             for i, elem in enumerate(list_of_xpaths):
                 # With text() at the end will not work
-                xpath = elem.removesuffix('/text()').rstrip('/')
+                xpath = elem.removesuffix('/text()').rstrip('/').replace('/html/div', '/html/body')
 
                 custom_tags = [xpath]
                 element_type = classify_element_by_xpath(xpath)
 
-                find_elements(element_type=element_type, custom_tags=custom_tags)
+                selenium_elements, lxml_elements = self._search_elements(tree, element_type, custom_tags)
 
-        if context_xpath:
-            try:
-                find_elements(element_type=ElementType.CONTEXT, custom_tags=[context_xpath])
-            except Exception as e:
-                self._logger.error(f'Error while retrieving context elements: {e}')
+                elements_all.extend(self._process_elements_in_parallel(selenium_elements, lxml_elements, element_type))
 
-        if cookies_xpath:
-            find_elements(element_type=ElementType.COOKIES, custom_tags=[cookies_xpath])
-
-        ##### SAVING COORDINATES OF ELEMENTS #####
-
-        self.docrawl_client.set_browser_scanned_elements(new_elements_all)
+        self.docrawl_client.set_browser_scanned_elements(elements_all)
         self._logger.info(
-            f'Scan Web Page function duration {timedelta_format(datetime.datetime.now(), time_start_f)}')
+            f'Scan Web Page function duration {timedelta_format(datetime.datetime.now(), time_start_f)}. Found {len(elements_all)} elements')
 
     def _wait_until_element_is_located(self, inp):
         """
