@@ -386,20 +386,22 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
 
         self._logger.warning("Scan web page has started")
 
-        incl_tables = inp['incl_tables']
-        incl_bullets = inp['incl_bullets']
-        incl_texts = inp['incl_texts']
-        incl_headlines = inp['incl_headlines']
-        incl_links = inp['incl_links']
-        incl_images = inp['incl_images']
-        incl_buttons = inp['incl_buttons']
-        incl_inputs = inp.get('incl_input', True)
         by_xpath = inp['by_xpath']
-        cookies_xpath = inp['cookies_xpath']  # dev param only
-        context_xpath = inp['context_xpath']
-        output_folder = inp['output_folder']
 
-        # First removed old data
+        config = {
+            TableElement: inp['incl_tables'],
+            BulletListElement: inp['incl_bullets'],
+            TextElement: inp['incl_texts'],
+            HeadlineElement: inp['incl_headlines'],
+            LinkElement: inp['incl_links'],
+            ImageElement: inp['incl_images'],
+            ButtonElement: inp['incl_buttons'],
+            InputElement: inp.get('incl_input', True),
+            CookiesElement: bool(inp['cookies_xpath']),
+            ContextElement: bool(inp['context_xpath']),
+        }
+
+        # First remove old data
         self.docrawl_client.set_browser_scanned_elements(elements=[])
 
         # Dictionary with elements (XPaths, data)
