@@ -1,3 +1,4 @@
+import logging
 from typing import Optional
 from urllib.parse import urlparse
 
@@ -37,3 +38,48 @@ def build_abs_url(scraped_url: str, domain_url: Optional[str] = None) -> str:
         for segment in scraped_segments:
             path_segment_list = _compute_next_path_segment(segment, path_segment_list)
         return f"{domain_url.scheme}://{domain_url.netloc}/{'/'.join(path_segment_list)}"
+
+
+class CustomFormatter(logging.Formatter):
+    grey = "\x1b[38;20m"
+    yellow = "\033[93m"
+    red = "\x1b[31;20m"
+    bold_red = "\x1b[31;1m"
+    reset = "\x1b[0m"
+    format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+
+    FORMATS = {
+        logging.DEBUG: grey + format + reset,
+        logging.INFO: grey + format + reset,
+        logging.WARNING: yellow + format + reset,
+        logging.ERROR: red + format + reset,
+        logging.CRITICAL: bold_red + format + reset
+    }
+
+    def format(self, record):
+        log_fmt = self.FORMATS.get(record.levelno)
+        formatter = logging.Formatter(log_fmt, datefmt='%Y-%m-%d %H:%M:%S')
+        return formatter.format(record)
+
+
+def get_logger(logger_name, filename: str = None):
+    logger = logging.getLogger(logger_name)
+
+    logger.setLevel(logging.DEBUG)
+
+    stream_handler = logging.StreamHandler()
+    stream_handler.setFormatter(CustomFormatter())
+
+    if filename is not None:
+        file_formatter = logging.Formatter(
+            '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+            datefmt='%Y-%m-%d %H:%M:%S'
+        )
+
+        file_handler = logging.handlers.RotatingFileHandler(filename, maxBytes=100000, backupCount=3)
+        file_handler.setFormatter(file_formatter)
+        logger.addHandler(file_handler)
+
+    logger.addHandler(stream_handler)
+
+    return logger
