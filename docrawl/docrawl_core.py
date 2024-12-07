@@ -400,7 +400,7 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                 "name": f"{elem_type.ELEMENT_TYPE}_{i}",
                 "type": elem_type.ELEMENT_TYPE,
                 "rect": selenium_element.rect,
-                "xpath": xpath,
+                "xpath": xpath.replace('/html/div', '/html/body'),   # Due to "special" behaviour of lxml lib
                 "data": asdict(instance.element_data),
             }
 
@@ -429,7 +429,6 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
         if custom_tags:
             # Due to "special" behaviour of lxml lib
             joined_tags = joined_tags.replace('/html/body', '/html/div')
-            self._logger.warning(f"BEFORE SEARCH XPATH REPLACED: {joined_tags}")
 
         lxml_elements = tree.xpath(joined_tags)
 
