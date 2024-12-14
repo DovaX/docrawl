@@ -1,7 +1,11 @@
 import re
-from enum import Enum
+from abc import ABC, abstractmethod
 from dataclasses import dataclass, asdict
-from typing import Dict
+from enum import Enum
+from typing import Dict, Any, Union, Type
+
+import lxml
+from lxml.html import HtmlElement
 
 
 class ElementType(str, Enum):
@@ -19,33 +23,6 @@ class ElementType(str, Enum):
     ELEMENT = 'element'
     COOKIES = 'cookies'
     INPUT = 'input'
-
-@dataclass
-class Element:
-    name: str
-    type: str   # TODO: change to ElementType
-    rect: Dict[str, dict]
-    xpath: str
-    data: Dict[str, dict]
-
-    def dict(self):
-        return asdict(self)
-
-
-def classify_element_by_xpath(xpath: str) -> ElementType:
-    xpath_split = re.split('//|/', xpath.removesuffix('/text()').rstrip('/'))  # Split XPath into parts
-    last_element_in_xpath = xpath_split[-1]  # Last element in XPath
-
-    # Default element's type
-    element_type_classified = ElementType.ELEMENT
-
-    # Try to find last element in XPath in predefined tags to identify element name
-    for element_type, predefined_tags in PREDEFINED_TAGS.items():
-        if any([x == last_element_in_xpath for x in predefined_tags]):
-            element_type_classified = element_type
-            break
-
-    return element_type_classified
 
 
 # Predefined tags by type
@@ -71,15 +48,219 @@ LINK_TAGS = ["""
                 """]
 INPUT_TAGS = 'input', 'textarea'
 
-# All predefined tags
-PREDEFINED_TAGS = {
-    ElementType.TABLE: TABLE_TAGS,
-    ElementType.BULLET: BULLET_TAGS,
-    ElementType.TEXT: TEXT_TAGS,
-    ElementType.HEADLINE: HEADLINE_TAGS,
-    ElementType.IMAGE: IMAGE_TAGS,
-    ElementType.BUTTON: BUTTON_TAGS,
-    ElementType.LINK: LINK_TAGS + ['a'],      # + ['a'] is to identify link tags when using custom XPath
-    ElementType.INPUT: INPUT_TAGS
-}
+
+@dataclass
+class ElementData:
+    tagName: str
+    textContent: str
+    attributes: dict[str, Any]
+
+
+@dataclass
+class Element:
+    name: str
+    type: str   # TODO: change to ElementType
+    rect: Dict[str, dict]
+    xpath: str
+    data: ElementData
+
+    def dict(self):
+        return asdict(self)
+
+
+class AbstractElement(ABC):
+    ELEMENT_TYPE: ElementType = ElementType.TEXT
+    PREDEFINED_TAGS = []
+
+    def __init__(self, html_content: str, xpath: str):
+        self.html_content = html_content
+        self.xpath = xpath
+
+        self.tree: HtmlElement = lxml.html.fromstring(self.html_content)
+        self.attributes = self._extract_attributes()
+        self.text = self._extract_text()
+
+        self._element_data = self.extract_data()
+
+    @property
+    def element_data(self) -> dict:
+        return self._element_data
+
+    def _extract_attributes(self) -> dict:
+        """
+        Extract attributes using lxml.
+        """
+        return {k: v for k, v in self.tree.attrib.items()}
+
+    def _extract_text(self) -> str:
+        """
+        Extract text content of the element using lxml.
+        """
+        return self.tree.text_content().strip()
+
+    def extract_data(self) -> dict:
+        """
+        Override in subclasses for element-specific data extraction.
+        """
+        raise NotImplementedError
+
+    def is_sized(self) -> bool:
+        """
+        Determine if the element has size (can be overridden if needed).
+        """
+        return True
+
+    @abstractmethod
+    def is_empty(self) -> bool:
+        pass
+
+
+class LinkElement(AbstractElement):
+    ELEMENT_TYPE = "link"
+    PREDEFINED_TAGS = ["a"]
+
+    def extract_data(self):
+        """
+        Extract link-specific data such as text and href attribute.
+        """
+        return ElementData(self.tree.tag, self.text, self.attributes)
+
+    def is_empty(self) -> bool:
+        return not self.attributes.get("href")
+
+
+class ButtonElement(AbstractElement):
+    ELEMENT_TYPE = "button"
+    PREDEFINED_TAGS = ["button", "input[@type='submit']"]
+
+    def extract_data(self):
+        """
+        Extract button-specific data such as text and attributes.
+        """
+
+        return ElementData(self.tree.tag, self.text, self.attributes)
+
+    def is_empty(self) -> bool:
+        return not self.text.strip()
+
+
+class ImageElement(AbstractElement):
+    ELEMENT_TYPE = "image"
+    PREDEFINED_TAGS = ["img"]
+
+    def extract_data(self):
+        """
+        Extract image-specific data such as src and alt attributes.
+        """
+
+        return ElementData(self.tree.tag, self.text, self.attributes)
+
+    def is_empty(self) -> bool:
+        return not self.attributes.get("src")
+
+
+class BulletListElement(AbstractElement):
+    ELEMENT_TYPE = "bullet_list"
+    PREDEFINED_TAGS = ["ul", "ol"]
+
+    def extract_data(self):
+        """
+        Extract bullet list items.
+        """
+        return ElementData(self.tree.tag, self.text, self.attributes)
+
+    def is_empty(self) -> bool:
+        return not self.tree.xpath(".//li")
+
+
+class TableElement(AbstractElement):
+    ELEMENT_TYPE = "table"
+    PREDEFINED_TAGS = ["table"]
+
+    def extract_data(self):
+        """
+        Extract table rows and columns.
+        """
+        return ElementData(self.tree.tag, self.text, self.attributes)
+
+    def is_empty(self) -> bool:
+        return not self.tree.xpath(".//tr")
+
+
+class TextElement(AbstractElement):
+    ELEMENT_TYPE = ElementType.TEXT
+    PREDEFINED_TAGS = TEXT_TAGS
+
+    def extract_data(self):
+        return ElementData(self.tree.tag, self.text, self.attributes)
+
+    def is_empty(self) -> bool:
+        return False
+
+
+class HeadlineElement(AbstractElement):
+    ELEMENT_TYPE = ElementType.HEADLINE
+    PREDEFINED_TAGS = HEADLINE_TAGS
+
+    def extract_data(self):
+        return ElementData(self.tree.tag, self.text, self.attributes)
+
+    def is_empty(self) -> bool:
+        return False
+
+
+class ContextElement(AbstractElement):
+    ELEMENT_TYPE = ElementType.CONTEXT
+
+    def extract_data(self):
+        return ElementData(self.tree.tag, self.text, self.attributes)
+
+    def is_empty(self) -> bool:
+        return False
+
+
+class InputElement(AbstractElement):
+    ELEMENT_TYPE = ElementType.INPUT
+    PREDEFINED_TAGS = INPUT_TAGS
+
+    def extract_data(self):
+        return ElementData(self.tree.tag, self.text, self.attributes)
+
+    def is_empty(self) -> bool:
+        return False
+
+
+class CookiesElement(AbstractElement):
+    ELEMENT_TYPE = ElementType.COOKIES
+
+    def extract_data(self):
+        return ElementData(self.tree.tag, self.text, self.attributes)
+
+    def is_empty(self) -> bool:
+        return False
+
+
+all_types = [LinkElement, InputElement, ImageElement, TableElement, TextElement, HeadlineElement, ButtonElement, BulletListElement, CookiesElement, ContextElement]
+
+
+all_elements_type = Union[LinkElement, InputElement, ImageElement, TableElement, TextElement, HeadlineElement, ButtonElement, BulletListElement, CookiesElement, ContextElement]
+
+
+def classify_element_by_xpath(xpath: str) -> Type[all_elements_type]:
+    xpath_split = re.split('//|/', xpath.removesuffix('/text()').rstrip('/'))  # Split XPath into parts
+    last_element_in_xpath = xpath_split[-1]  # Last element in XPath
+
+    # Default element's type
+    element_type_classified = TextElement
+
+    # Try to find last element in XPath in predefined tags to identify element name
+    for element_type in all_types:
+        if any([x == last_element_in_xpath for x in element_type.PREDEFINED_TAGS]):
+            element_type_classified = element_type
+            break
+
+    return element_type_classified
+
+
+
 
