@@ -1054,7 +1054,12 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                             self._update_proxy(proxy)
 
                     self.browser.get(url)
-                    self.page = Selector(text=self.browser.page_source)
+                    
+                    page_source = self.browser.page_source
+                    if isinstance(page_source, bytes):
+                        page_source = page_source.decode('utf8')
+                    
+                    self.page = Selector(text=page_source)
                     
                     # collect headers for current page
                     headers = next((dict(req.headers) for req in self.browser.requests if req.response and req.url == url), None)
