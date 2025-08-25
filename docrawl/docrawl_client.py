@@ -36,9 +36,7 @@ class DocrawlClient:
         self._kv_redis_key_scanned_elements = self.kv_redis_keys.get('elements', f'{self.redis_key_prefix}:elements')
         self._kv_redis_key_screenshot = self.kv_redis_keys.get('screenshot', f'{self.redis_key_prefix}:screenshot')
         
-        self.browser_headers = None
-        self.browser_cookies = None
-        self.browser_requests = None
+        self.page_data = None
 
         docrawl_logger.info(f'Initialised DocrawlClient with ID {self._client_id}')
 
@@ -51,24 +49,11 @@ class DocrawlClient:
     def get_browser_meta_data(self):
         return self.kv_redis.get(key=self._kv_redis_key_browser_metadata)
     
-    def set_browser_headers(self, headers: dict):
-        self.browser_headers = headers
-        # self.kv_redis.set(key=self._kv_redis_key_browser_headers, value=headers)
+    def set_page_data(self, data: dict):
+        self.page_data = data
     
-    def get_browser_headers(self):
-        return self.browser_headers
-    
-    def set_browser_cookies(self, cookies: dict):
-        self.browser_cookies = cookies
-    
-    def get_browser_cookies(self):
-        return self.browser_cookies
-    
-    def set_browser_requests(self, requests: list):
-        self.browser_requests = requests
-    
-    def get_browser_requests(self):
-        return self.browser_requests
+    def get_page_data(self):
+        return self.page_data
 
     def set_browser_scanned_elements(self, elements: list):
         self.kv_redis.set(key=self._kv_redis_key_scanned_elements, value=elements)
