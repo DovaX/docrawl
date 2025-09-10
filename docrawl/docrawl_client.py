@@ -114,7 +114,8 @@ class DocrawlClient:
         while not is_page_loaded and time.time() < timeout_start + timeout:
             try:
                 is_page_loaded = self.get_browser_meta_data()['request']['loaded']
-            except:
+            except Exception as e:
+                docrawl_logger.error(f'Error while loading is_page_loaded: {e}')
                 is_page_loaded = False
             time.sleep(0.5)
             docrawl_logger.info('Page is still loading, waiting 0.5 sec ...')
