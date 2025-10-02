@@ -1,6 +1,6 @@
 import datetime
 import os
-import re
+import io,re
 import time
 import traceback
 
@@ -1036,6 +1036,55 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                 self.screenshot_thread.join()
                 self.screenshot_thread = None
 
+    def to_utf8_text(self, raw: bytes, headers: dict | None = None) -> str:
+        headers = {k.lower(): v for k, v in (headers or {}).items()}
+        data = raw
+
+        # 1) Decompress if needed based on Content-Encoding
+        enc = headers.get('content-encoding', '').lower()
+        try:
+            if 'gzip' in enc:
+                import gzip
+                data = gzip.GzipFile(fileobj=io.BytesIO(data)).read()
+            elif 'br' in enc:
+                import brotli
+                data = brotli.decompress(data)
+            elif 'deflate' in enc:
+                import zlib
+                try:
+                    data = zlib.decompress(data, -zlib.MAX_WBITS)
+                except zlib.error:
+                    data = zlib.decompress(data)
+            elif 'zstd' in enc or 'zstandard' in enc:
+                import zstandard as zstd
+                data = zstd.ZstdDecompressor().decompress(data)
+            # Heuristic: gzip magic
+            elif data[:2] == b'\x1f\x8b':
+                import gzip
+                data = gzip.GzipFile(fileobj=io.BytesIO(data)).read()
+        except Exception:
+            pass  # fall back to raw bytes
+
+        # 2) Pick charset from Content-Type or detect
+        ct = headers.get('content-type', '')
+        m = re.search(r'charset=([\w\-\.:]+)', ct, re.I)
+        if m:
+            charset = m.group(1).strip(' "').lower()
+        else:
+            try:
+                from charset_normalizer import from_bytes
+                best = from_bytes(data).best()
+                charset = (best.encoding if best else None) or 'utf-8'
+            except Exception:
+                try:
+                    import chardet
+                    charset = chardet.detect(data).get('encoding') or 'utf-8'
+                except Exception:
+                    charset = 'utf-8'
+
+        # 3) Decode to str (Unicode); it's effectively UTF‑8 once in Python str
+        return data.decode(charset, errors='replace')
+
     def parse(self, response):
         while True:
             self.increment_time_of_screenshot_thread()
@@ -1054,6 +1103,7 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                             self._update_proxy(proxy)
 
                     self.browser.get(url)
+                    time.sleep(2) #wait for page to load
                     
                     page_source = self.browser.page_source
                     if isinstance(page_source, bytes):
@@ -1064,22 +1114,36 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                     # collect headers for current page
                     headers = next((dict(req.headers) for req in self.browser.requests if req.response and req.url == url), None)
                     self.docrawl_client.set_browser_headers(headers)
-                    
+
                     # collect cookies for current page
                     cookies = [dict(cookie) for cookie in self.browser.get_cookies()]
                     self.docrawl_client.set_browser_cookies(cookies)
+
                     
                     # collects requests, which contain: url, status code, headers from response, content from response 
                     requests = []
                     for _req in self.browser.requests:
-                        _type = _req.headers.get('content-type')
-                        if _req.response and  _type == 'application/json':
+                                                  
+                        _type = _req.response.headers.get('Content-Type', '')
+                        url_exc = ['https://firefox.settings.services.mozilla.com/v1/','google.com', 'googleapis.com']
+                        if _req.response and  _type == 'application/json' and not any(url_exc in _req.url for url_exc in url_exc):
+                            docrawl_logger.info(f"AAAA Request URL: {_req.url}")
+
+                            content = self.to_utf8_text(_req.response.body, dict(_req.response.headers))
+
                             requests.append({
                                 'url': _req.url,
+                                'method': _req.method,
+                                'request_headers': dict(_req.headers),
+                                'request_cookies': _req.response.headers.get('Cookie', ''),
+                                'response_cookies': _req.response.headers.get('Set-Cookie', ''),
+                                'payload': _req.body.decode('utf-8') if _req.body else '',
                                 'status_code': _req.response.status_code,
-                                'headers': dict(_req.response.headers),
-                                'content': str(_req.response.body),
+                                'response_headers': dict(_req.response.headers),
+                                'content': content,
                             })
+
+                    docrawl_logger.info(f"Requests count: {len(requests)}")
                     self.docrawl_client.set_browser_requests(requests)
 
                     spider_request['loaded'] = True
