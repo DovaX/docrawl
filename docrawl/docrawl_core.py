@@ -1085,6 +1085,27 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
         # 3) Decode to str (Unicode); it's effectively UTF‑8 once in Python str
         return data.decode(charset, errors='replace')
 
+
+    def _safe_decode_request_body(self, body: bytes) -> str:
+        if not body:
+            return ''
+        
+        # Check if body is gzipped by looking at the magic number
+        if body.startswith(b'\x1f\x8b'):
+            try:
+                import gzip
+                decompressed = gzip.decompress(body)
+                return decompressed.decode('utf-8')
+            except Exception:
+                return f"<gzipped data: {len(body)} bytes (decompression failed)>"
+        
+        # If not gzipped, try direct UTF-8 decoding
+        try:
+            return body.decode('utf-8')
+        except UnicodeDecodeError:
+            # For other binary content, return a safe representation
+            return f"<binary data: {len(body)} bytes>"
+
     def parse(self, response):
         while True:
             self.increment_time_of_screenshot_thread()
@@ -1123,25 +1144,26 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                     # collects requests, which contain: url, status code, headers from response, content from response 
                     requests = []
                     for _req in self.browser.requests:
-                                                  
-                        _type = _req.response.headers.get('Content-Type', '')
-                        url_exc = ['https://firefox.settings.services.mozilla.com/v1/','google.com', 'googleapis.com']
-                        if _req.response and  _type == 'application/json' and not any(url_exc in _req.url for url_exc in url_exc):
-                            docrawl_logger.info(f"AAAA Request URL: {_req.url}")
+                        # Check if response exists before accessing its attributes
+                        if _req.response:                           
+                            _type = _req.response.headers.get('Content-Type', '')
+                            url_exc = ['https://firefox.settings.services.mozilla.com/v1/','google.com', 'googleapis.com']
+                            if _req.response and  _type == 'application/json' and not any(url_exc in _req.url for url_exc in url_exc):
+                                # docrawl_logger.info(f"AAAA Request URL: {_req.url}")
 
-                            content = self.to_utf8_text(_req.response.body, dict(_req.response.headers))
+                                content = self.to_utf8_text(_req.response.body, dict(_req.response.headers))
 
-                            requests.append({
-                                'url': _req.url,
-                                'method': _req.method,
-                                'request_headers': dict(_req.headers),
-                                'request_cookies': _req.response.headers.get('Cookie', ''),
-                                'response_cookies': _req.response.headers.get('Set-Cookie', ''),
-                                'payload': _req.body.decode('utf-8') if _req.body else '',
-                                'status_code': _req.response.status_code,
-                                'response_headers': dict(_req.response.headers),
-                                'content': content,
-                            })
+                                requests.append({
+                                    'url': _req.url,
+                                    'method': _req.method,
+                                    'request_headers': dict(_req.headers),
+                                    'request_cookies': _req.response.headers.get('Cookie', ''),
+                                    'response_cookies': _req.response.headers.get('Set-Cookie', ''),
+                                    'payload': self._safe_decode_request_body(_req.body) if _req.body else '',
+                                    'status_code': _req.response.status_code,
+                                    'response_headers': dict(_req.response.headers),
+                                    'content': content,
+                                })  
 
                     docrawl_logger.info(f"Requests count: {len(requests)}")
                     self.docrawl_client.set_browser_requests(requests)
