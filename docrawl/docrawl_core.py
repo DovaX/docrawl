@@ -1,4 +1,5 @@
 import datetime
+import json
 import os
 import io,re
 import time
@@ -1128,9 +1129,15 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                         _type = _req.response.headers.get('Content-Type', '')
                         url_exc = ['https://firefox.settings.services.mozilla.com/v1/','google.com', 'googleapis.com']
                         if _req.response and  _type == 'application/json' and not any(url_exc in _req.url for url_exc in url_exc):
-                            docrawl_logger.info(f"AAAA Request URL: {_req.url}")
+                            docrawl_logger.info(f"Request URL: {_req.url}")
 
                             content = self.to_utf8_text(_req.response.body, dict(_req.response.headers))
+                            payload = self.to_utf8_text(_req.body, dict(_req.headers))
+
+                            try:
+                                payload = json.loads(payload)
+                            except Exception as e:
+                                docrawl_logger.warning(f"Couldn't parse JSON: {e}")
 
                             requests.append({
                                 'url': _req.url,
@@ -1138,7 +1145,7 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                                 'request_headers': dict(_req.headers),
                                 'request_cookies': _req.response.headers.get('Cookie', ''),
                                 'response_cookies': _req.response.headers.get('Set-Cookie', ''),
-                                'payload': _req.body.decode('utf-8') if _req.body else '',
+                                'payload': payload,
                                 'status_code': _req.response.status_code,
                                 'response_headers': dict(_req.response.headers),
                                 'content': content,
