@@ -32,6 +32,8 @@ from docrawl.docrawl_logger import docrawl_logger
 from docrawl.elements import PREDEFINED_TAGS, Element, ElementType, classify_element_by_xpath
 from docrawl.utils import build_abs_url
 
+from typing import Optional
+
 # Due to the problems with selenium wire on linux systems
 try:
     from seleniumwire import webdriver
@@ -1036,7 +1038,7 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                 self.screenshot_thread.join()
                 self.screenshot_thread = None
 
-    def to_utf8_text(self, raw: bytes, headers: dict | None = None) -> str:
+    def to_utf8_text(self, raw: bytes, headers: Optional[dict] = None) -> str:
         headers = {k.lower(): v for k, v in (headers or {}).items()}
         data = raw
 
