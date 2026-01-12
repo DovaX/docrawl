@@ -1121,7 +1121,10 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                     # collects requests, which contain: url, status code, headers from response, content from response 
                     requests = []
                     for _req in self.browser.requests:
-                                                  
+                        if _req.response is None:
+                            docrawl_logger.warning('Browser response is None, skipping headers extraction')
+                            continue
+
                         _type = _req.response.headers.get('Content-Type', '')
                         url_exc = ['https://firefox.settings.services.mozilla.com/v1/','google.com', 'googleapis.com']
                         if _req.response and  _type == 'application/json' and not any(url_exc in _req.url for url_exc in url_exc):
