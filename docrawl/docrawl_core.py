@@ -1045,7 +1045,7 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
         # 1) Decompress if needed based on Content-Encoding
         enc = headers.get('content-encoding', '').lower()
         try:
-            if 'gzip' in enc:
+            if 'gzip' in enc or data[:2] == b'\x1f\x8b':
                 import gzip
                 data = gzip.GzipFile(fileobj=io.BytesIO(data)).read()
             elif 'br' in enc:
@@ -1060,12 +1060,8 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
             elif 'zstd' in enc or 'zstandard' in enc:
                 import zstandard as zstd
                 data = zstd.ZstdDecompressor().decompress(data)
-            # Heuristic: gzip magic
-            elif data[:2] == b'\x1f\x8b':
-                import gzip
-                data = gzip.GzipFile(fileobj=io.BytesIO(data)).read()
-        except Exception:
-            pass  # fall back to raw bytes
+        except Exception as e:
+            docrawl_logger.warning(f"Couldn't decompress data: {e}")
 
         # 2) Pick charset from Content-Type or detect
         ct = headers.get('content-type', '')
