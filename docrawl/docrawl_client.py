@@ -26,7 +26,7 @@ class DocrawlClient:
 
     def __init__(self, kv_redis=None, kv_redis_keys=None, number_of_spawn_browsers=0, redis_key_prefix=""):
         """Number of spawn browsers = how many browser processes are ready in standby mode to not initialize + close the browser, currently support 0 and 1."""
-        self._client_id = redis_key_prefix.split(':')[1] or next(self.id_iter)
+        self._client_id = (redis_key_prefix.split(':')[1] if redis_key_prefix else None) or next(self.id_iter)
 
         self.kv_redis = kv_redis or KeepVariableDummyRedisServer()
         self.kv_redis_keys = kv_redis_keys or {}

@@ -1,4 +1,5 @@
 import datetime
+import json
 import os
 import io,re
 import time
@@ -31,6 +32,8 @@ from docrawl.errors import SpiderFunctionError
 from docrawl.docrawl_logger import docrawl_logger
 from docrawl.elements import PREDEFINED_TAGS, Element, ElementType, classify_element_by_xpath
 from docrawl.utils import build_abs_url
+
+from typing import Optional
 
 # Due to the problems with selenium wire on linux systems
 try:
@@ -1036,14 +1039,14 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                 self.screenshot_thread.join()
                 self.screenshot_thread = None
 
-    def to_utf8_text(self, raw: bytes, headers: dict | None = None) -> str:
+    def to_utf8_text(self, raw: bytes, headers: Optional[dict] = None) -> str:
         headers = {k.lower(): v for k, v in (headers or {}).items()}
         data = raw
 
         # 1) Decompress if needed based on Content-Encoding
         enc = headers.get('content-encoding', '').lower()
         try:
-            if 'gzip' in enc:
+            if 'gzip' in enc or data[:2] == b'\x1f\x8b':
                 import gzip
                 data = gzip.GzipFile(fileobj=io.BytesIO(data)).read()
             elif 'br' in enc:
@@ -1058,12 +1061,8 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
             elif 'zstd' in enc or 'zstandard' in enc:
                 import zstandard as zstd
                 data = zstd.ZstdDecompressor().decompress(data)
-            # Heuristic: gzip magic
-            elif data[:2] == b'\x1f\x8b':
-                import gzip
-                data = gzip.GzipFile(fileobj=io.BytesIO(data)).read()
-        except Exception:
-            pass  # fall back to raw bytes
+        except Exception as e:
+            docrawl_logger.warning(f"Couldn't decompress data: {e}")
 
         # 2) Pick charset from Content-Type or detect
         ct = headers.get('content-type', '')
@@ -1123,13 +1122,22 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                     # collects requests, which contain: url, status code, headers from response, content from response 
                     requests = []
                     for _req in self.browser.requests:
-                                                  
+                        if _req.response is None:
+                            docrawl_logger.warning('Browser response is None, skipping headers extraction')
+                            continue
+
                         _type = _req.response.headers.get('Content-Type', '')
                         url_exc = ['https://firefox.settings.services.mozilla.com/v1/','google.com', 'googleapis.com']
                         if _req.response and  _type == 'application/json' and not any(url_exc in _req.url for url_exc in url_exc):
-                            docrawl_logger.info(f"AAAA Request URL: {_req.url}")
+                            docrawl_logger.info(f"Request URL: {_req.url}")
 
                             content = self.to_utf8_text(_req.response.body, dict(_req.response.headers))
+                            payload = self.to_utf8_text(_req.body, dict(_req.headers))
+
+                            try:
+                                payload = json.loads(payload)
+                            except Exception as e:
+                                docrawl_logger.warning(f"Couldn't parse JSON: {e}")
 
                             requests.append({
                                 'url': _req.url,
@@ -1137,7 +1145,7 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                                 'request_headers': dict(_req.headers),
                                 'request_cookies': _req.response.headers.get('Cookie', ''),
                                 'response_cookies': _req.response.headers.get('Set-Cookie', ''),
-                                'payload': _req.body.decode('utf-8') if _req.body else '',
+                                'payload': payload,
                                 'status_code': _req.response.status_code,
                                 'response_headers': dict(_req.response.headers),
                                 'content': content,
