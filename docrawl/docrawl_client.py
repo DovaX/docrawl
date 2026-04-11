@@ -119,8 +119,8 @@ class DocrawlClient:
             except Exception as e:
                 docrawl_logger.error(f'Error while loading is_page_loaded: {e}')
                 is_page_loaded = False
-            time.sleep(0.5)
-            docrawl_logger.info('Page is still loading, waiting 0.5 sec ...')
+            time.sleep(0.2)
+            docrawl_logger.info('Page is still loading, waiting 0.2 sec ...')
 
         if is_page_loaded:
             docrawl_logger.warning(f'Page loaded: {self.get_browser_meta_data()["request"]["url"]}')
@@ -142,8 +142,8 @@ class DocrawlClient:
         while not is_function_done and time.time() < timeout_start + timeout:
             spider_function = self.get_browser_meta_data()['function']
             is_function_done = spider_function['done']
-            time.sleep(0.5)
-            docrawl_logger.info('Function is still running, waiting 0.5 sec ...')
+            time.sleep(0.2)
+            docrawl_logger.info('Function is still running, waiting 0.2 sec ...')
 
         if is_function_done:
             if spider_function["error"] is None:
@@ -200,6 +200,9 @@ class DocrawlClient:
         self._execute_function('restart_browser', None, timeout=120)
 
     def load_website(self, url, timeout=20):
+        if self.get_browser_meta_data() is None:
+            self._initialize_browser_metadata(driver='Firefox', headless=True)
+   
         if "http" not in url:
             url = "http://" + url
 

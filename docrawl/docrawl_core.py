@@ -1,6 +1,7 @@
 import datetime
 import os
 import io,re
+import shutil
 import time
 import traceback
 
@@ -13,6 +14,7 @@ from scrapy.selector import Selector
 from selenium.common.exceptions import (
     ElementClickInterceptedException,
     NoSuchElementException,
+    TimeoutException,
     WebDriverException,
 )
 
@@ -41,6 +43,59 @@ except:
     from selenium import webdriver
 
 import threading
+
+# After navigation, harvesting every JSON XHR from selenium-wire is O(n) in captured
+# traffic; busy SPAs can record hundreds. Cap + URL filter keeps load snappy.
+_DEFAULT_MAX_JSON_REQUESTS_HARVEST = 64
+
+_JSON_HARVEST_URL_EXCLUDE_SUBSTRINGS = (
+    "firefox.settings.services.mozilla.com",
+    "google.com",
+    "googleapis.com",
+    "gstatic.com",
+    "googletagmanager.com",
+    "google-analytics.com",
+    "doubleclick.net",
+    "facebook.com",
+    "facebook.net",
+    "hotjar.com",
+    "segment.io",
+    "segment.com",
+    "segmentapis.com",
+    "sentry.io",
+    "browser-intake-datadog",
+    "datadoghq.com",
+    "clarity.ms",
+    "adservice.google",
+    "scorecardresearch.com",
+    "newrelic.com",
+    "nr-data.net",
+    "optimizely.com",
+    "cdn.amplitude.com",
+    "mixpanel.com",
+)
+
+
+def _get_max_json_requests_harvest():
+    """
+    Max JSON responses to decode and store after each navigation.
+    Env DOCRAWL_MAX_JSON_REQUESTS: default 64; 0 or negative = unlimited (legacy behavior).
+    """
+    raw = os.environ.get("DOCRAWL_MAX_JSON_REQUESTS", "").strip()
+    if not raw:
+        return _DEFAULT_MAX_JSON_REQUESTS_HARVEST
+    try:
+        n = int(raw, 10)
+    except ValueError:
+        return _DEFAULT_MAX_JSON_REQUESTS_HARVEST
+    return None if n <= 0 else n
+
+
+def _should_skip_url_for_json_harvest(url: str) -> bool:
+    if not url:
+        return True
+    return any(sub in url for sub in _JSON_HARVEST_URL_EXCLUDE_SUBSTRINGS)
+
 
 class ScreenshotThread(threading.Thread):
     def __init__(self, docrawl_spider, screenshot_filename, interval=0.5):
@@ -114,14 +169,21 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                 # For headless mode different width of window is needed
                 window_size_x = 1450
 
-            try:
-                service = Service(GeckoDriverManager().install())
-            except Exception as e:
-                service = None
-                docrawl_logger.warning(
-                    "GeckoDriverManager update was not successful - launching latest Firefox version instead"
-                    + str(e)
-                )
+            # Check if geckodriver is already installed in PATH to avoid GitHub API calls
+            geckodriver_path = shutil.which("geckodriver")
+            if geckodriver_path:
+                service = Service(geckodriver_path)
+                docrawl_logger.info(f"Using geckodriver from PATH: {geckodriver_path}")
+            else:
+                # Fall back to GeckoDriverManager if not found in PATH
+                try:
+                    service = Service(GeckoDriverManager().install())
+                except Exception as e:
+                    service = None
+                    docrawl_logger.warning(
+                        "GeckoDriverManager update was not successful - launching latest Firefox version instead"
+                        + str(e)
+                    )
 
             try:
                 self.browser = webdriver.Firefox(
@@ -408,7 +470,7 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
         tree = lxml.html.fromstring(innerHTML)
 
         # Url pattern, used to get main page url from current url
-        url_pattern = re.compile('^(((https|http):\/\/|www\.)*[a-zA-Z0-9\.\/\?\:@\-_=#]{2,100}\.[a-zA-Z]{2,6}\/)')
+        url_pattern = re.compile(r'^(((https|http):\/\/|www\.)*[a-zA-Z0-9\.\/\?\:@\-_=#]{2,100}\.[a-zA-Z]{2,6}\/)')
 
         time_start_f = datetime.datetime.now()
 
@@ -1085,6 +1147,20 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
         # 3) Decode to str (Unicode); it's effectively UTF‑8 once in Python str
         return data.decode(charset, errors='replace')
 
+    def _wait_document_ready_after_navigation(self, max_wait: float = 15.0) -> None:
+        """
+        Wait until document.readyState == 'complete' instead of a fixed sleep after get().
+        Usually returns immediately when Selenium has already finished loading; saves ~2s on fast pages.
+        """
+        try:
+            WebDriverWait(self.browser, max_wait).until(
+                lambda d: d.execute_script("return document.readyState") == "complete"
+            )
+        except TimeoutException:
+            docrawl_logger.warning(
+                f"document.readyState did not reach 'complete' within {max_wait}s; continuing anyway"
+            )
+
     def parse(self, response):
         while True:
             self.increment_time_of_screenshot_thread()
@@ -1103,8 +1179,8 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                             self._update_proxy(proxy)
 
                     self.browser.get(url)
-                    time.sleep(2) #wait for page to load
-                    
+                    self._wait_document_ready_after_navigation()
+
                     page_source = self.browser.page_source
                     if isinstance(page_source, bytes):
                         page_source = page_source.decode('utf8')
@@ -1119,31 +1195,51 @@ class DocrawlSpider(scrapy.spiders.CrawlSpider):
                     cookies = [dict(cookie) for cookie in self.browser.get_cookies()]
                     self.docrawl_client.set_browser_cookies(cookies)
 
-                    
-                    # collects requests, which contain: url, status code, headers from response, content from response 
+                    # collects requests, which contain: url, status code, headers from response, content from response
+                    harvest_limit = _get_max_json_requests_harvest()
                     requests = []
                     for _req in self.browser.requests:
-                        url_exc = ['https://firefox.settings.services.mozilla.com/v1/','google.com', 'googleapis.com']                                                  
-                        if _req.response:
-                            _type = _req.response.headers.get('Content-Type', '')
+                        if harvest_limit is not None and len(requests) >= harvest_limit:
+                            docrawl_logger.warning(
+                                f"JSON request harvest capped at {harvest_limit} "
+                                f"(set DOCRAWL_MAX_JSON_REQUESTS=0 for no cap)"
+                            )
+                            break
+                        if not _req.response:
+                            continue
+                        content_type = _req.response.headers.get("Content-Type", "") or ""
+                        base_ct = content_type.split(";", 1)[0].strip().lower()
+                        if base_ct != "application/json":
+                            continue
+                        if _should_skip_url_for_json_harvest(_req.url):
+                            continue
 
-                            if _type == 'application/json' and not any(url_exc in _req.url for url_exc in url_exc):
-                                docrawl_logger.info(f"AAAA Request URL: {_req.url}")
+                        docrawl_logger.info(f"AAAA Request URL: {_req.url}")
 
-                                content = self.to_utf8_text(_req.response.body, dict(_req.response.headers))
-                                payload = self.to_utf8_text(_req.body, dict(_req.headers)) if _req.body else ''
+                        content = self.to_utf8_text(
+                            _req.response.body, dict(_req.response.headers)
+                        )
+                        payload = (
+                            self.to_utf8_text(_req.body, dict(_req.headers))
+                            if _req.body
+                            else ""
+                        )
 
-                                requests.append({
-                                    'url': _req.url,
-                                    'method': _req.method,
-                                    'request_headers': dict(_req.headers),
-                                    'request_cookies': _req.response.headers.get('Cookie', ''),
-                                    'response_cookies': _req.response.headers.get('Set-Cookie', ''),
-                                    'payload': payload,
-                                    'status_code': _req.response.status_code,
-                                    'response_headers': dict(_req.response.headers),
-                                    'content': content,
-                                })
+                        requests.append(
+                            {
+                                "url": _req.url,
+                                "method": _req.method,
+                                "request_headers": dict(_req.headers),
+                                "request_cookies": _req.response.headers.get("Cookie", ""),
+                                "response_cookies": _req.response.headers.get(
+                                    "Set-Cookie", ""
+                                ),
+                                "payload": payload,
+                                "status_code": _req.response.status_code,
+                                "response_headers": dict(_req.response.headers),
+                                "content": content,
+                            }
+                        )
 
                     docrawl_logger.info(f"Requests count: {len(requests)}")
                     self.docrawl_client.set_browser_requests(requests)
